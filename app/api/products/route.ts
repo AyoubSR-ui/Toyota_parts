@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { NextResponse } from 'next/server';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -19,12 +19,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getChatGPTUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const adminEmail = (env as unknown as { ADMIN_EMAIL?: string }).ADMIN_EMAIL;
-  if (adminEmail && user.email.toLowerCase() !== adminEmail.toLowerCase()) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const length = Number(request.headers.get('content-length'));
   if (length > MAX_IMAGE_BYTES + 64 * 1024) {
