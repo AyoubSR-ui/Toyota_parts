@@ -9,3 +9,7 @@
 .upload-preview { width:100%; max-height:240px; object-fit:contain; background:#f4f6f7; border:1px solid #d9dde1; border-radius:6px; }
 .product-record { display:flex; gap:14px; align-items:center; }
 .product-record img { width:72px; height:72px; flex:none; object-fit:cover; border-radius:5px; }
+
+.login-shell { min-height:calc(100vh - 76px); display:grid; place-items:center; padding:30px 16px; }
+.login-card { width:min(100%,430px); display:grid; gap:18px; }
+.login-card h1 { font-size:30px; margin:0 0 5px; }

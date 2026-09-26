@@ -16,3 +16,5 @@ The initial deployment is owner-private. The admin routes require ChatGPT sign-i
 ## Railway deployment
 
 The start script listens on `0.0.0.0` and `${PORT:-8000}` to match Railway's public service port. The original persistence bindings (`DB` and `BUCKET`) belong to the Sites deployment. Railway's local Wrangler bindings do not share that production data; configure durable Railway-compatible storage before using Railway for customer requests or product uploads.
+
+The Railway admin uses `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (PBKDF2-SHA256, `iterations:salt:hash` with base64url values), and `ADMIN_AUTH_SECRET` as runtime variables. Run `pnpm start:railway` there. A Railway volume mounted at `/data` is required for durable D1/R2 local storage; the startup script initializes its schema only when `RAILWAY_VOLUME_MOUNT_PATH` is provided. Never commit credentials to Git.

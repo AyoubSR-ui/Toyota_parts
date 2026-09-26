@@ -1,10 +1,8 @@
 import { env } from 'cloudflare:workers';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { NextResponse } from 'next/server';
 export async function GET() {
-  const user=await getChatGPTUser(); if(!user) return NextResponse.json({error:'Unauthorized'},{status:401});
-  const adminEmail=(env as unknown as {ADMIN_EMAIL?:string}).ADMIN_EMAIL;
-  if(adminEmail && user.email.toLowerCase()!==adminEmail.toLowerCase()) return NextResponse.json({error:'Forbidden'},{status:403});
+  if (!(await isAdmin())) return NextResponse.json({error:'Unauthorized'},{status:401});
   try { const result=await env.DB!.prepare('SELECT * FROM leads ORDER BY id DESC LIMIT 200').all(); return NextResponse.json(result.results); }
   catch { return NextResponse.json({error:'Requests unavailable'},{status:503}); }
 }
