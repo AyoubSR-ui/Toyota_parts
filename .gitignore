@@ -43,6 +43,7 @@ next-env.d.ts
 /.agents/
 /.codex/
 /outputs/
+/site-deploy*.tar.gz
 /work/
 !.env.example
 tsconfig.tsbuildinfo

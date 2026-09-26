@@ -11,6 +11,7 @@ export const products = sqliteTable('products', {
   descriptionEn: text('description_en'),
   descriptionAr: text('description_ar'),
   price: text('price'),
+  imageKey: text('image_key'),
   createdAt: text('created_at').notNull().default(''),
 });
 
