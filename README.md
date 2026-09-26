@@ -12,3 +12,7 @@ pnpm dev
 For deployment on Sites, the logical D1 binding is `DB` and product images use the `BUCKET` R2 binding. Run `pnpm db:generate` after schema changes. The checked-in migrations create the `products` and `leads` tables and add product image keys. Do not put customer phone numbers in source control.
 
 The initial deployment is owner-private. The admin routes require ChatGPT sign-in. Before opening the storefront to the public, set the `ADMIN_EMAIL` runtime variable to the administrator's sign-in email so signed-in customers cannot use admin APIs. Public storefront access and any production contact workflow should be configured before launch.
+
+## Railway deployment
+
+The start script listens on `0.0.0.0` and `${PORT:-8000}` to match Railway's public service port. The original persistence bindings (`DB` and `BUCKET`) belong to the Sites deployment. Railway's local Wrangler bindings do not share that production data; configure durable Railway-compatible storage before using Railway for customer requests or product uploads.
