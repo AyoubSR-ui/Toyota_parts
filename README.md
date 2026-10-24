@@ -28,3 +28,6 @@ Admins can edit products, replace/remove photos, and delete products from the ca
 PostgreSQL adds the new columns on startup. D1 schema changes are tracked in Drizzle migration 0002.
 
 Incoming customer requests are displayed in a searchable, bilingual table on `/admin/requests`, protected by the same admin login. The Products and Requests navigation links separate catalog work from enquiries.
+
+### Optional request photos
+The public part-request form accepts one optional JPG, PNG, or WebP photo (up to 5 MB), with a preview and remove button. Requests may also be submitted without a photo; the API retains JSON support and accepts multipart form uploads. Request photos are stored separately in `request_images`, linked by `leads.image_key`. Admins can open them from the Requests table; the image endpoint requires admin authentication and sends private/no-store cache headers. Startup applies the additive PostgreSQL schema migration; the D1 column is tracked in Drizzle migration 0003.

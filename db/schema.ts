@@ -31,5 +31,6 @@ export const leads = sqliteTable('leads', {
   orderType: text('order_type', { enum: ['single', 'wholesale'] }).notNull(),
   quantity: integer('quantity'),
   vinFrame: text('vin_frame'),
+  imageKey: text('image_key'),
   createdAt: text('created_at').notNull().default(''),
 });

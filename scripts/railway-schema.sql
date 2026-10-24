@@ -28,5 +28,6 @@ CREATE TABLE IF NOT EXISTS leads (
   order_type text NOT NULL,
   quantity integer,
   vin_frame text,
+  image_key text,
   created_at text DEFAULT '' NOT NULL
 );

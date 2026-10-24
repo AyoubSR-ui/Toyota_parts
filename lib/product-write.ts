@@ -2,9 +2,9 @@ import { database, images } from '@/lib/storage';
 import { isAdmin } from '@/lib/admin-auth';
 import { NextResponse } from 'next/server';
 import type { Product } from '@/lib/catalog';
+import { imageTypes, MAX_IMAGE_BYTES, validImage } from '@/lib/image-upload';
 
-const maxImageBytes = 5 * 1024 * 1024;
-const imageTypes: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const maxImageBytes = MAX_IMAGE_BYTES;
 export async function saveProduct(request: Request, id?: number) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (Number(request.headers.get('content-length')) > maxImageBytes + 64 * 1024) return NextResponse.json({ error: 'Image must be 5 MB or smaller' }, { status: 413 });
@@ -22,7 +22,7 @@ export async function saveProduct(request: Request, id?: number) {
   }
   const image = value('image');
   const hasImage = image instanceof File && image.size > 0;
-  if (hasImage && (image.size > maxImageBytes || !imageTypes[image.type] || !(await matchesSignature(image)))) return NextResponse.json({ error: 'Choose a JPG, PNG, or WebP image up to 5 MB' }, { status: 400 });
+  if (hasImage && !(await validImage(image))) return NextResponse.json({ error: 'Choose a JPG, PNG, or WebP image up to 5 MB' }, { status: 400 });
   let newImageKey: string | null = null;
   try {
     const existing = id ? await database().prepare('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL').bind(id).first<Product>() : null;
@@ -50,9 +50,3 @@ export async function saveProduct(request: Request, id?: number) {
   }
 }
 function valid(value: FormDataEntryValue | null, max: number) { return typeof value === 'string' && value.trim().length > 0 && value.length <= max; }
-async function matchesSignature(file: File) {
-  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  if (file.type === 'image/jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-  if (file.type === 'image/png') return [137,80,78,71,13,10,26,10].every((b,i) => bytes[i] === b);
-  return file.type === 'image/webp' && String.fromCharCode(...bytes.slice(0,4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8,12)) === 'WEBP';
-}
