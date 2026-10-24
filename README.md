@@ -36,3 +36,12 @@ Request contact numbers use a fixed Algeria (+213) WhatsApp prefix. The client a
 
 ### Saved request-form rules
 Admins configure all 12 customer-request fields at `/admin/form` using Show and Required controls, then save. Configuration is persisted in `form_settings` and fetched without caching by the public form. The API independently enforces the saved rules, ignores hidden field values, and permits nulls for disabled/optional request details while preserving existing records. At least one field must remain visible and a submitted request must contain at least one detail. Quantity follows wholesale selection, or is always available when order type is hidden. Configuration read failures stop submissions rather than bypassing required fields. Drizzle migration 0004 tracks the nullable request columns and settings table; PostgreSQL applies these changes at startup.
+
+### Seller accounts and inventory marketplace
+- `/account` supports email/password registration, login, logout, public store profiles, Algerian WhatsApp numbers, city, and up to 30 custom brands. Email stays private; store contact/profile details are explicitly public.
+- Member sessions use a separate, purpose-bound HMAC cookie and salted PBKDF2 password hashes. They cannot authorize admin routes. Same-origin JSON mutations and persisted login rate limits protect account endpoints. Railway uses the existing server-side signing secret; no new external API is needed.
+- Each member creates, edits and soft-deletes only their own inventory. Every update includes both inventory ID and owner ID. Quantity zero and deleted items are excluded from public search. Prices are per unit in DZD.
+- `/search` searches references, names and vehicle compatibility in both the admin catalog and member inventory. `/sellers/:id` displays one seller's public profile and available inventory, with WhatsApp contact links. Results are capped at 100 per source; refine the query when capped.
+- `members`, `inventory`, and `auth_limits` are initialized by the PostgreSQL startup schema; Drizzle migration 0007 covers D1. These changes preserve existing products and requests.
+- This initial release does not verify email ownership or provide automated password recovery. No email provider or AI API is configured.
+- Verify with `npx tsc --noEmit`, `pnpm build`, then `python scripts/test-members.py`. The integration test runs against an isolated in-memory database and local Worker; it creates no production accounts or stock.

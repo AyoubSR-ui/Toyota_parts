@@ -1,0 +1,1 @@
+export function MarketHeader(){return <header className="topbar"><div className="shell topbar-inner"><a className="brand" href="/">Toyota Parts</a><nav className="nav"><a href="/search">البحث عن قطعة</a><a href="/account">حسابي ومخزوني</a><a href="/">المتجر</a></nav></div></header>;}

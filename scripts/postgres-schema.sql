@@ -37,3 +37,16 @@ ALTER TABLE leads ALTER COLUMN order_type DROP NOT NULL;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS compatibility TEXT;
 
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'form';
+
+CREATE TABLE IF NOT EXISTS members (
+ id SERIAL PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+ display_name TEXT NOT NULL, phone TEXT NOT NULL, city TEXT, brands TEXT NOT NULL,
+ created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS inventory (
+ id SERIAL PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES members(id), name TEXT NOT NULL,
+ brand TEXT NOT NULL, reference TEXT, compatibility TEXT, price TEXT NOT NULL,
+ quantity INTEGER NOT NULL DEFAULT 0, part_type TEXT NOT NULL, deleted_at TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS inventory_owner_idx ON inventory(owner_id);
+CREATE TABLE IF NOT EXISTS auth_limits (id TEXT PRIMARY KEY,hits INTEGER NOT NULL,reset_at BIGINT NOT NULL);

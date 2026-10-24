@@ -35,3 +35,15 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 
 CREATE TABLE IF NOT EXISTS form_settings (id text PRIMARY KEY NOT NULL, value text NOT NULL);
+
+CREATE TABLE IF NOT EXISTS members (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+ display_name TEXT NOT NULL, phone TEXT NOT NULL, city TEXT, brands TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS inventory (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL REFERENCES members(id), name TEXT NOT NULL,
+ brand TEXT NOT NULL, reference TEXT, compatibility TEXT, price TEXT NOT NULL,
+ quantity INTEGER NOT NULL DEFAULT 0, part_type TEXT NOT NULL, deleted_at TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS inventory_owner_idx ON inventory(owner_id);
+CREATE TABLE IF NOT EXISTS auth_limits (id TEXT PRIMARY KEY,hits INTEGER NOT NULL,reset_at INTEGER NOT NULL);

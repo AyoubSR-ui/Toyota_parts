@@ -50,6 +50,13 @@
       "when": 1792881869908,
       "tag": "0006_third_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1792883330560,
+      "tag": "0007_talented_mathemanic",
+      "breakpoints": true
     }
   ]
 }
