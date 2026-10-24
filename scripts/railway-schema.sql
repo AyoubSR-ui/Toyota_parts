@@ -17,17 +17,19 @@ CREATE TABLE IF NOT EXISTS products (
 );
 CREATE TABLE IF NOT EXISTS leads (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  name text NOT NULL,
-  phone text NOT NULL,
-  brand text NOT NULL,
-  part_name text NOT NULL,
+  name text,
+  phone text,
+  brand text,
+  part_name text,
   reference text,
-  model text NOT NULL,
-  year integer NOT NULL,
+  model text,
+  year integer,
   note text,
-  order_type text NOT NULL,
+  order_type text,
   quantity integer,
   vin_frame text,
   image_key text,
   created_at text DEFAULT '' NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS form_settings (id text PRIMARY KEY NOT NULL, value text NOT NULL);

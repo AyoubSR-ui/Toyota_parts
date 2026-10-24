@@ -20,17 +20,19 @@ export const products = sqliteTable('products', {
 
 export const leads = sqliteTable('leads', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  phone: text('phone').notNull(),
-  brand: text('brand', { enum: ['Toyota', 'Nissan'] }).notNull(),
-  partName: text('part_name').notNull(),
+  name: text('name'),
+  phone: text('phone'),
+  brand: text('brand', { enum: ['Toyota', 'Nissan'] }),
+  partName: text('part_name'),
   reference: text('reference'),
-  model: text('model').notNull(),
-  year: integer('year').notNull(),
+  model: text('model'),
+  year: integer('year'),
   note: text('note'),
-  orderType: text('order_type', { enum: ['single', 'wholesale'] }).notNull(),
+  orderType: text('order_type', { enum: ['single', 'wholesale'] }),
   quantity: integer('quantity'),
   vinFrame: text('vin_frame'),
   imageKey: text('image_key'),
   createdAt: text('created_at').notNull().default(''),
 });
+
+export const formSettings = sqliteTable('form_settings', { id:text('id').primaryKey(), value:text('value').notNull() });
