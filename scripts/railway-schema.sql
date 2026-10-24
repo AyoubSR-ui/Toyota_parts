@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS products (
   reference text,
   model text,
   years text,
+  compatibility text,
   description_en text,
   description_ar text,
   price text,

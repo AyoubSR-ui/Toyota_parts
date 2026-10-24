@@ -1,6 +1,6 @@
 export type Product = {
   id: number; brand: string; name_en: string; name_ar: string; reference: string | null;
-  model: string | null; years: string | null; description_en: string | null;
+  compatibility: string | null; model: string | null; years: string | null; description_en: string | null;
   description_ar: string | null; price: string | null; image_key: string | null;
   part_type: 'original' | 'commercial' | null; manufacture_country: string | null;
 };

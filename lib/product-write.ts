@@ -33,16 +33,16 @@ export async function saveProduct(request: Request, id?: number) {
       await images().put(newImageKey, image.stream(), { httpMetadata: { contentType: image.type } });
       imageKey = newImageKey;
     }
-    const values = [brand, String(nameEn).trim(), String(nameAr).trim(), optional('reference', 100), optional('model', 100), optional('years', 80), optional('descriptionEn', 500), optional('descriptionAr', 500), price === null ? null : String(Number(price)), imageKey, partType, optional('manufactureCountry', 80)];
+    const values = [brand, String(nameEn).trim(), String(nameAr).trim(), optional('reference', 100), optional('model', 100), optional('years', 80), optional('descriptionEn', 500), optional('descriptionAr', 500), price === null ? null : String(Number(price)), imageKey, partType, optional('manufactureCountry', 80), optional('compatibility', 2000)];
     if (id) {
-      const result = await database().prepare('UPDATE products SET brand=?,name_en=?,name_ar=?,reference=?,model=?,years=?,description_en=?,description_ar=?,price=?,image_key=?,part_type=?,manufacture_country=? WHERE id=? AND deleted_at IS NULL').bind(...values, id).run();
+      const result = await database().prepare('UPDATE products SET brand=?,name_en=?,name_ar=?,reference=?,model=?,years=?,description_en=?,description_ar=?,price=?,image_key=?,part_type=?,manufacture_country=?,compatibility=? WHERE id=? AND deleted_at IS NULL').bind(...values, id).run();
       if (!result.meta.changes) {
         if (newImageKey) await images().delete(newImageKey);
         return NextResponse.json({ error: 'Product not found' }, { status: 404 });
       }
       return NextResponse.json({ id });
     }
-    const result = await database().prepare('INSERT INTO products (brand,name_en,name_ar,reference,model,years,description_en,description_ar,price,image_key,part_type,manufacture_country,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(...values, new Date().toISOString()).run();
+    const result = await database().prepare('INSERT INTO products (brand,name_en,name_ar,reference,model,years,description_en,description_ar,price,image_key,part_type,manufacture_country,compatibility,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(...values, new Date().toISOString()).run();
     return NextResponse.json({ id: result.meta.last_row_id }, { status: 201 });
   } catch {
     if (newImageKey) await images().delete(newImageKey).catch(() => {});

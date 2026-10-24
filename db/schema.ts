@@ -8,6 +8,7 @@ export const products = sqliteTable('products', {
   reference: text('reference'),
   model: text('model'),
   years: text('years'),
+  compatibility: text('compatibility'),
   descriptionEn: text('description_en'),
   descriptionAr: text('description_ar'),
   price: text('price'),
