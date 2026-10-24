@@ -28,8 +28,8 @@ export async function startStorage(connectionString, token, port = 8788) {
       }
       if (url.pathname.startsWith('/objects/')) {
         const key = decodeURIComponent(url.pathname.slice('/objects/'.length));
-        if (!/^(products|requests)\/[a-zA-Z0-9-]+\.(jpg|png|webp)$/.test(key)) return json(400, { error: 'Invalid key' });
-        const table = key.startsWith('requests/') ? 'request_images' : 'product_images';
+        if (!/^(products|requests|members)\/[a-zA-Z0-9-]+\.(jpg|png|webp)$/.test(key)) return json(400, { error: 'Invalid key' });
+        const table = key.startsWith('requests/') ? 'request_images' : key.startsWith('members/') ? 'member_images' : 'product_images';
         if (request.method === 'PUT') {
           const contentType = request.headers['content-type'];
           if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) return json(400, { error: 'Invalid image type' });

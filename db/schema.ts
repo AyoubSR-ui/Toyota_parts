@@ -40,7 +40,7 @@ export const leads = sqliteTable('leads', {
 export const formSettings = sqliteTable('form_settings', { id:text('id').primaryKey(), value:text('value').notNull() });
 
 export const members=sqliteTable('members',{
- id:integer('id').primaryKey({autoIncrement:true}),email:text('email').notNull().unique(),passwordHash:text('password_hash').notNull(),displayName:text('display_name').notNull(),phone:text('phone').notNull(),city:text('city'),brands:text('brands').notNull(),createdAt:text('created_at').notNull(),
+ id:integer('id').primaryKey({autoIncrement:true}),email:text('email').notNull().unique(),passwordHash:text('password_hash').notNull(),displayName:text('display_name').notNull(),logoKey:text('logo_key'),phone:text('phone').notNull(),city:text('city'),brands:text('brands').notNull(),createdAt:text('created_at').notNull(),
 });
 export const inventory=sqliteTable('inventory',{
  id:integer('id').primaryKey({autoIncrement:true}),ownerId:integer('owner_id').notNull().references(()=>members.id),name:text('name').notNull(),brand:text('brand').notNull(),reference:text('reference'),compatibility:text('compatibility'),price:text('price').notNull(),quantity:integer('quantity').notNull().default(0),partType:text('part_type').notNull(),deletedAt:text('deleted_at'),createdAt:text('created_at').notNull(),

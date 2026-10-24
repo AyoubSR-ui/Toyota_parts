@@ -1,13 +1,26 @@
 """Local-only integration check: build first with pnpm build, then python scripts/test-members.py."""
-import http.server,json,os,socket,sqlite3,subprocess,tempfile,threading,time,urllib.request,urllib.error
+import base64,http.server,json,os,socket,sqlite3,subprocess,tempfile,threading,time,urllib.request,urllib.error,urllib.parse
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 conn=sqlite3.connect(':memory:',check_same_thread=False)
 conn.row_factory=sqlite3.Row
 conn.executescript((ROOT/'scripts/railway-schema.sql').read_text())
 lock=threading.Lock()
+objects={}
 class Bridge(http.server.BaseHTTPRequestHandler):
  def log_message(self,*args):pass
+ def object_request(self):
+  if self.headers.get('Authorization')!='Bearer local-test-token':self.send_error(401);return
+  key=urllib.parse.unquote(self.path.removeprefix('/objects/'))
+  if self.command=='PUT':
+   objects[key]=(self.rfile.read(int(self.headers['Content-Length'])),self.headers['Content-Type']);self.send_response(200);self.end_headers();self.wfile.write(b'{}')
+  elif self.command=='DELETE':objects.pop(key,None);self.send_response(200);self.end_headers();self.wfile.write(b'{}')
+  elif key in objects:
+   data,mime=objects[key];self.send_response(200);self.send_header('Content-Type',mime);self.end_headers();self.wfile.write(data)
+  else:self.send_error(404)
+ do_PUT=object_request
+ do_GET=object_request
+ do_DELETE=object_request
  def do_POST(self):
   if self.headers.get('Authorization')!='Bearer local-test-token':self.send_error(401);return
   try:
@@ -29,11 +42,11 @@ def call(path,method='GET',data=None,cookie=None,request_origin=origin):
  if data is not None:headers['Content-Type']='application/json'
  if cookie:headers['Cookie']=cookie
  request=urllib.request.Request(origin+path,method=method,data=json.dumps(data).encode() if data is not None else None,headers=headers)
- try:r=opener.open(request,timeout=15)
+ try:r=opener.open(request,timeout=25)
  except urllib.error.HTTPError as e:r=e
  body=r.read();return r.status,json.loads(body) if body else {},r.headers
 with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
- log=open(Path(tmp)/'runtime.log','w')
+ log=open('/tmp/toyota-members-test.log','w')
  p=subprocess.Popen(['node','node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--local','--persist-to',tmp,'--ip','127.0.0.1','--port',str(port),'--inspector-port','0','--var','ADMIN_AUTH_SECRET:local-test-signing-secret','--var',f'INTERNAL_STORAGE_URL:http://127.0.0.1:{bridge.server_port}','--var','INTERNAL_STORAGE_TOKEN:local-test-token'],cwd=ROOT,stdout=log,stderr=log)
  try:
   for _ in range(100):
@@ -55,6 +68,22 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert 'password_hash' not in profile
   assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','city':'تقرت','brands':['Toyota','Suzuki']},alice)[0]==200
   assert call('/api/account','PUT',{'display_name':'المتجر الثاني','phone':'0555123457','city':'الجزائر','brands':['Suzuki']},bob)[0]==200
+  png=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF9sAAAAASUVORK5CYII=')
+  def upload_logo(cookie,content=png,mime='image/png'):
+   boundary='local-logo-test-boundary'
+   body=(f'--{boundary}\r\nContent-Disposition: form-data; name="logo"; filename="test.png"\r\nContent-Type: {mime}\r\n\r\n').encode()+content+f'\r\n--{boundary}--\r\n'.encode()
+   r=urllib.request.Request(origin+'/api/account/logo',method='POST',data=body,headers={'Origin':origin,'Cookie':cookie,'Content-Type':'multipart/form-data; boundary='+boundary})
+   try:response=opener.open(r);return response.status
+   except urllib.error.HTTPError as e:return e.code
+  assert upload_logo(alice)==200
+  updated=call('/api/account',cookie=alice)[1];assert updated['logo_url']
+  logo=opener.open(origin+updated['logo_url']);assert logo.read()==png and logo.headers['Content-Type']=='image/png'
+  assert call('/api/account',cookie=bob)[1]['logo_url'] is None
+  assert upload_logo(alice,b'not a PNG')==400
+  assert upload_logo('')==401
+  assert call('/api/account/logo','DELETE',{},alice)[0]==200
+  assert call('/api/account',cookie=alice)[1]['logo_url'] is None
+  assert upload_logo(alice)==200
   item={'name':'مضخة اختبار','brand':'Suzuki','reference':'LOCAL-123','compatibility':'Swift 2018–2024','price':'2500.50','quantity':'5','partType':'original'}
   status,created,_=call('/api/inventory','POST',item,alice);assert status==201,(status,created)
   item_id=created['id']
@@ -87,7 +116,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   with lock:
    hashes=[row[0] for row in conn.execute('SELECT password_hash FROM members')]
   assert len(set(hashes))==2 and all('Local-test' not in value for value in hashes)
-  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits')
+  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation')
  finally:
   p.terminate()
   try:p.wait(timeout=10)

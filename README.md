@@ -45,3 +45,5 @@ Admins configure all 12 customer-request fields at `/admin/form` using Show and 
 - `members`, `inventory`, and `auth_limits` are initialized by the PostgreSQL startup schema; Drizzle migration 0007 covers D1. These changes preserve existing products and requests.
 - This initial release does not verify email ownership or provide automated password recovery. No email provider or AI API is configured.
 - Verify with `npx tsc --noEmit`, `pnpm build`, then `python scripts/test-members.py`. The integration test runs against an isolated in-memory database and local Worker; it creates no production accounts or stock.
+
+Store identity is editable in the Profile tab: store name and a public JPG/PNG/WebP logo up to 5 MB. Logos are owned by the authenticated member, stored persistently in `member_images` on Railway (R2 on D1), and shown on public profiles and search cards. Uploads validate content signatures; replacing/removing a logo cleans up the prior object. Migration 0008 adds `members.logo_key`.
