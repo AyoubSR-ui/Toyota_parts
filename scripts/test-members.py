@@ -66,7 +66,8 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/inventory')[0]==401
   status,profile,_=call('/api/account',cookie=alice);assert status==200 and profile['phone']=='+213555123456'
   assert 'password_hash' not in profile
-  assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','city':'تقرت','brands':['Toyota','Suzuki']},alice)[0]==200
+  assert profile['background_color']=='#f5f6f8'
+  assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','city':'تقرت','brands':['Toyota','Suzuki'],'background_color':'#17202b'},alice)[0]==200
   assert call('/api/account','PUT',{'display_name':'المتجر الثاني','phone':'0555123457','city':'الجزائر','brands':['Suzuki']},bob)[0]==200
   png=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF9sAAAAASUVORK5CYII=')
   def upload_logo(cookie,content=png,mime='image/png'):
@@ -95,6 +96,13 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/search?q=Swift')[1]['items'][0]['id']==item_id
   public=call('/api/sellers/'+str(profile['id']))[1]
   assert 'email' not in public and 'password_hash' not in public and public['city']=='تقرت'
+  assert public['background_color']=='#17202b'
+  assert public['display_name']=='المتجر الأول'
+  assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','brands':['Toyota','Suzuki'],'background_color':'url(evil)'},alice)[0]==400
+  assert call('/api/account',cookie=alice)[1]['background_color']=='#17202b'
+  assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','city':'تقرت','brands':['Suzuki'],'background_color':'#eaf1fb'},alice)[0]==200
+  assert call('/api/account',cookie=alice)[1]['brands']==['Suzuki']
+  assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','brands':[]},alice)[0]==400
   assert call('/api/inventory','POST',{**item,'brand':'Nissan'},alice)[0]==400
   assert call('/api/inventory','POST',{**item,'price':'-1'},alice)[0]==400
   assert call('/api/inventory','POST',{**item,'quantity':'1.5'},alice)[0]==400
@@ -116,7 +124,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   with lock:
    hashes=[row[0] for row in conn.execute('SELECT password_hash FROM members')]
   assert len(set(hashes))==2 and all('Local-test' not in value for value in hashes)
-  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation')
+  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation, store name, brand removal, theme persistence and validation')
  finally:
   p.terminate()
   try:p.wait(timeout=10)

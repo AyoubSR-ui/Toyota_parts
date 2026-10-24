@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS form_settings (id text PRIMARY KEY NOT NULL, value te
 
 CREATE TABLE IF NOT EXISTS members (
  id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
- display_name TEXT NOT NULL, phone TEXT NOT NULL, city TEXT, brands TEXT NOT NULL, logo_key TEXT, created_at TEXT NOT NULL
+ display_name TEXT NOT NULL, phone TEXT NOT NULL, city TEXT, brands TEXT NOT NULL, logo_key TEXT, background_color TEXT NOT NULL DEFAULT '#f5f6f8', created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS inventory (
  id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL REFERENCES members(id), name TEXT NOT NULL,

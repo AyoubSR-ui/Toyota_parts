@@ -47,3 +47,5 @@ Admins configure all 12 customer-request fields at `/admin/form` using Show and 
 - Verify with `npx tsc --noEmit`, `pnpm build`, then `python scripts/test-members.py`. The integration test runs against an isolated in-memory database and local Worker; it creates no production accounts or stock.
 
 Store identity is editable in the Profile tab: store name and a public JPG/PNG/WebP logo up to 5 MB. Logos are owned by the authenticated member, stored persistently in `member_images` on Railway (R2 on D1), and shown on public profiles and search cards. Uploads validate content signatures; replacing/removing a logo cleans up the prior object. Migration 0008 adds `members.logo_key`.
+
+Profile branding also includes add/remove brand chips (save to persist) and a validated hexadecimal background color with presets and live preview. The chosen background applies to the member account and public seller page; cards keep readable colors. Removing a brand changes the profile and future inventory choices and does not delete existing stock. Migration 0009 stores the background per account.

@@ -1,0 +1,1 @@
+ALTER TABLE `members` ADD `background_color` text DEFAULT '#f5f6f8' NOT NULL;

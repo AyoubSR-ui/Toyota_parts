@@ -1,0 +1,2 @@
+export const defaultStoreBackground='#f5f6f8';
+export function storeInk(background:string){const hex=/^#[0-9a-f]{6}$/i.test(background)?background:defaultStoreBackground;const channels=[1,3,5].map(index=>{const value=parseInt(hex.slice(index,index+2),16)/255;return value<=.04045?value/12.92:Math.pow((value+.055)/1.055,2.4);});const luminance=channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;return luminance>.179?'#17202b':'#ffffff';}
