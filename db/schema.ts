@@ -33,6 +33,7 @@ export const leads = sqliteTable('leads', {
   quantity: integer('quantity'),
   vinFrame: text('vin_frame'),
   imageKey: text('image_key'),
+  source: text('source').default('form'),
   createdAt: text('created_at').notNull().default(''),
 });
 

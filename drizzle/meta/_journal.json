@@ -43,6 +43,13 @@
       "when": 1792880441992,
       "tag": "0005_happy_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792881869908,
+      "tag": "0006_third_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

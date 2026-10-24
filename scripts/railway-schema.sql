@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS leads (
   quantity integer,
   vin_frame text,
   image_key text,
+  source text DEFAULT 'form',
   created_at text DEFAULT '' NOT NULL
 );
 

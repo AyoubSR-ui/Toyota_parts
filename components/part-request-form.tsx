@@ -5,7 +5,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { normalizeAlgerianWhatsApp } from '@/lib/whatsapp';
 import { requestFields, type FieldKey, type FormSettings } from '@/lib/form-fields';
-export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChange,onSubmitted}:{ar:boolean;partName:string;brand:string;onPartNameChange:(value:string)=>void;onBrandChange:(value:string)=>void;onSubmitted:()=>void}) {
+export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChange,onSubmitted,guided=false}:{guided?:boolean;ar:boolean;partName:string;brand:string;onPartNameChange:(value:string)=>void;onBrandChange:(value:string)=>void;onSubmitted:()=>void}) {
+  const [step,setStep]=useState(0);const wizardRef=useRef<HTMLDivElement>(null);
   const [settings,setSettings]=useState<FormSettings|null>(null);const [loadError,setLoadError]=useState(false);
   const [orderType,setOrderType]=useState('');const [status,setStatus]=useState('');const [failed,setFailed]=useState(false);const [sending,setSending]=useState(false);
   const [photo,setPhoto]=useState<string|null>(null);const imageRef=useRef<HTMLInputElement>(null);const phoneRef=useRef<HTMLInputElement>(null);
@@ -13,17 +14,20 @@ export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChang
   useEffect(()=>{void load()},[]);useEffect(()=>()=>{if(photo)URL.revokeObjectURL(photo)},[photo]);
   function error(message:string){setStatus(message);setFailed(true);}
   async function submit(event:React.FormEvent<HTMLFormElement>){
-    event.preventDefault();if(!settings)return;const form=event.currentTarget;const data=new FormData(form);
+    event.preventDefault();if(!settings)return;const form=event.currentTarget;const data=new FormData(form);if(guided)data.set('source','chatbot');
     const rawPhone=String(data.get('phone')||'').trim();
     if(rawPhone){const phone=normalizeAlgerianWhatsApp(rawPhone);if(!phone){const message=ar?'أدخل رقم واتساب جزائري صحيحاً، مثل 555123456.':'Enter a valid Algerian WhatsApp number, e.g. 555123456.';phoneRef.current?.setCustomValidity(message);phoneRef.current?.reportValidity();return;}data.set('phone',phone);}
-    if(![...data.values()].some(value=>value instanceof File?value.size>0:value.trim())){error(ar?'يرجى إدخال معلومة واحدة على الأقل.':'Please provide at least one detail.');return;}
+    if(![...data.entries()].filter(([key])=>key!=='source').map(([,value])=>value).some(value=>value instanceof File?value.size>0:value.trim())){error(ar?'يرجى إدخال معلومة واحدة على الأقل.':'Please provide at least one detail.');return;}
     setSending(true);setStatus('');setFailed(false);
-    try{const response=await fetch('/api/leads',{method:'POST',body:data});if(!response.ok){await load();throw Error();}const result=await response.json() as {id:number};setStatus(ar?`تم استلام طلبك رقم ${result.id}. سنتواصل معك قريباً.`:`Request #${result.id} received. We will contact you soon.`);form.reset();setPhoto(null);setOrderType('');onSubmitted();}
+    try{const response=await fetch('/api/leads',{method:'POST',body:data});if(!response.ok){await load();throw Error();}const result=await response.json() as {id:number};setStatus(ar?`تم استلام طلبك رقم ${result.id}. سنتواصل معك قريباً.`:`Request #${result.id} received. We will contact you soon.`);form.reset();setPhoto(null);setOrderType('');setStep(0);onSubmitted();}
     catch{error(ar?'تعذر إرسال الطلب. تحقق من الحقول المطلوبة وحاول مجدداً.':'Could not send your request. Check the required fields and try again.');}finally{setSending(false);}
   }
   if(!settings)return <div className="form-card"><p role="status">{loadError?(ar?'تعذر تحميل النموذج.':'Could not load the form.'):(ar?'جارٍ تحميل النموذج…':'Loading request form…')}</p>{loadError&&<button className="secondary-button" onClick={load}>{ar?'حاول مجدداً':'Try again'}</button>}</div>;
   function label(key:FieldKey){const field=requestFields.find(field=>field.key===key)!;return (ar?field.ar:field.en)+(settings!.fields[key].required?' *':ar?' (اختياري)':' (optional)');}
-  return <form className="form-card" onSubmit={submit}><div className="form-grid">{requestFields.filter(({key})=>settings.fields[key].visible&&(key!=='quantity'||orderType==='wholesale'||!settings.fields.orderType.visible)).map(({key})=>{
+  const visibleFields=requestFields.filter(({key})=>settings.fields[key].visible&&(key!=='quantity'||orderType==='wholesale'||!settings.fields.orderType.visible));
+  const currentStep=Math.min(step,visibleFields.length-1);
+  function next(){const controls=wizardRef.current?.querySelectorAll<HTMLInputElement>('[data-active="true"] input,[data-active="true"] select,[data-active="true"] textarea');for(const control of controls||[]){if(!control.reportValidity())return;}if(visibleFields[currentStep]?.key==='phone'&&phoneRef.current?.value&&!normalizeAlgerianWhatsApp(phoneRef.current.value)){phoneRef.current.setCustomValidity('أدخل رقم واتساب جزائري صحيحاً، مثل 555123456.');phoneRef.current.reportValidity();return;}setStep(currentStep+1);}
+  return <form className="form-card" onKeyDown={event=>{if(guided&&event.key==='Enter'&&currentStep<visibleFields.length-1&&event.target instanceof HTMLInputElement){event.preventDefault();next();}}} onSubmit={event=>{if(guided&&currentStep<visibleFields.length-1){event.preventDefault();return;}void submit(event);}}><div className="form-grid" ref={wizardRef}>{guided&&<p className="span2">الخطوة {currentStep+1} من {visibleFields.length} — يمكنك الرجوع لتعديل إجاباتك.</p>}{visibleFields.map(({key},index)=>{
     const required=settings.fields[key].required;
     const wide=['vinFrame','image','note'].includes(key);
     let input;
@@ -41,6 +45,6 @@ export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChang
       case 'image':input=<><Input ref={imageRef} name={key} required={required} type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const file=event.target.files?.[0];if(file&&(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type))){event.target.value='';setPhoto(null);error(ar?'اختر صورة JPG أو PNG أو WebP بحجم لا يتجاوز 5 ميغابايت.':'Choose a JPG, PNG or WebP image up to 5 MB.');return;}setStatus('');setPhoto(file?URL.createObjectURL(file):null);}}/><span className="muted field-hint">{ar?'JPG أو PNG أو WebP، حتى 5 ميغابايت. تظهر الصورة للإدارة فقط.':'JPG, PNG or WebP · up to 5 MB. Visible only to the admin.'}</span></>;break;
       case 'note':input=<Textarea name={key} required={required} maxLength={1000} placeholder={ar?'أضف تفاصيل عن القطعة أو السيارة':'Add details about the part or your car'}/>;break;
     }
-    return <div className={wide?'span2':''} key={key}><label className="field">{label(key)}{input}</label>{key==='image'&&photo&&<div className="request-photo-preview"><img className="upload-preview" src={photo} alt={ar?'معاينة صورة القطعة':'Part photo preview'}/><button type="button" className="secondary-button" onClick={()=>{setPhoto(null);if(imageRef.current)imageRef.current.value='';}}>{ar?'إزالة الصورة':'Remove photo'}</button></div>}</div>;
-  })}<Button className="span2" disabled={sending} type="submit">{sending?'...':ar?'إرسال الطلب':'Send request'}</Button></div>{status&&<div role="status" className={'notice '+(failed?'error':'')}>{status}</div>}</form>;
+    return <div className={wide||guided?'span2':''} hidden={guided&&index!==currentStep} data-active={index===currentStep} key={key}><label className="field">{label(key)}{input}</label>{key==='image'&&photo&&<div className="request-photo-preview"><img className="upload-preview" src={photo} alt={ar?'معاينة صورة القطعة':'Part photo preview'}/><button type="button" className="secondary-button" onClick={()=>{setPhoto(null);if(imageRef.current)imageRef.current.value='';}}>{ar?'إزالة الصورة':'Remove photo'}</button></div>}</div>;
+  })}{guided&&<div className="span2 chat-actions">{currentStep>0&&<button type="button" className="secondary-button" disabled={sending} onClick={()=>setStep(currentStep-1)}>السابق</button>}{currentStep<visibleFields.length-1&&<button type="button" className="btn btn-red" onClick={next}>التالي</button>}</div>}{(!guided||currentStep===visibleFields.length-1)&&<Button className="span2" disabled={sending} type="submit">{sending?'...':ar?'إرسال الطلب':'Send request'}</Button>}</div>{status&&<div role="status" className={'notice '+(failed?'error':'')}>{status}</div>}</form>;
 }

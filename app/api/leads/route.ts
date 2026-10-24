@@ -36,7 +36,7 @@ export async function POST(request:Request) {
   let imageKey:string|null=null;
   try{
     if(image){imageKey=`requests/${crypto.randomUUID()}.${imageTypes[image.type]}`;await images().put(imageKey,image.stream(),{httpMetadata:{contentType:image.type}});}
-    const result=await database().prepare('INSERT INTO leads (name,phone,brand,part_name,reference,model,year,note,order_type,quantity,vin_frame,image_key,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(d.name||null,phone,d.brand||null,d.partName||null,d.reference||null,d.model||null,d.year?Number(d.year):null,d.note||null,d.orderType||null,d.quantity?Number(d.quantity):null,d.vinFrame?.toUpperCase()||null,imageKey,new Date().toISOString()).run();
+    const result=await database().prepare('INSERT INTO leads (name,phone,brand,part_name,reference,model,year,note,order_type,quantity,vin_frame,image_key,source,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(d.name||null,phone,d.brand||null,d.partName||null,d.reference||null,d.model||null,d.year?Number(d.year):null,d.note||null,d.orderType||null,d.quantity?Number(d.quantity):null,d.vinFrame?.toUpperCase()||null,imageKey,raw.source==='chatbot'?'chatbot':'form',new Date().toISOString()).run();
     return NextResponse.json({id:result.meta.last_row_id},{status:201});
   }catch{if(imageKey)await images().delete(imageKey).catch(()=>{});return NextResponse.json({error:'Request could not be saved. Please retry.'},{status:503});}
 }
