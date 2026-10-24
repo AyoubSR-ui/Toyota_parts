@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS products (
+  id SERIAL PRIMARY KEY, brand TEXT NOT NULL, name_en TEXT NOT NULL, name_ar TEXT NOT NULL,
+  reference TEXT, model TEXT, years TEXT, description_en TEXT, description_ar TEXT,
+  price TEXT, image_key TEXT, created_at TEXT NOT NULL DEFAULT ''
+);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS image_key TEXT;
+CREATE TABLE IF NOT EXISTS leads (
+  id SERIAL PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL, brand TEXT NOT NULL,
+  part_name TEXT NOT NULL, reference TEXT, model TEXT NOT NULL, year INTEGER NOT NULL,
+  note TEXT, order_type TEXT NOT NULL, quantity INTEGER, created_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS product_images (
+  key TEXT PRIMARY KEY, content_type TEXT NOT NULL, data BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

@@ -1,12 +1,12 @@
-import { env } from 'cloudflare:workers';
+import { database, images } from '@/lib/storage';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[1-9]\d*$/.test(id)) return new Response('Not found', { status: 404 });
   try {
-    const row = await env.DB!.prepare('SELECT image_key FROM products WHERE id = ?').bind(Number(id)).first<{ image_key: string | null }>();
+    const row = await database().prepare('SELECT image_key FROM products WHERE id = ?').bind(Number(id)).first<{ image_key: string | null }>();
     if (!row?.image_key) return new Response('Not found', { status: 404 });
-    const object = await env.BUCKET!.get(row.image_key);
+    const object = await images().get(row.image_key);
     if (!object) return new Response('Not found', { status: 404 });
     return new Response(object.body, {
       headers: {

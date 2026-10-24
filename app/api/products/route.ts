@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:workers';
+import { database, images } from '@/lib/storage';
 import { isAdmin } from '@/lib/admin-auth';
 import { NextResponse } from 'next/server';
 
@@ -11,7 +11,7 @@ const imageTypes: Record<string, string> = {
 
 export async function GET() {
   try {
-    const result = await env.DB!.prepare('SELECT * FROM products ORDER BY id DESC').all();
+    const result = await database().prepare('SELECT * FROM products ORDER BY id DESC').all();
     return NextResponse.json(result.results);
   } catch {
     return NextResponse.json({ error: 'Catalog unavailable' }, { status: 503 });
@@ -46,9 +46,9 @@ export async function POST(request: Request) {
 
   try {
     if (imageKey && image instanceof File) {
-      await env.BUCKET!.put(imageKey, image.stream(), { httpMetadata: { contentType: image.type } });
+      await images().put(imageKey, image.stream(), { httpMetadata: { contentType: image.type } });
     }
-    const result = await env.DB!.prepare(
+    const result = await database().prepare(
       'INSERT INTO products (brand,name_en,name_ar,reference,model,years,description_en,description_ar,price,image_key,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
     ).bind(
       brand, String(nameEn).trim(), String(nameAr).trim(), optional(field('reference'), 100),
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     ).run();
     return NextResponse.json({ id: result.meta.last_row_id }, { status: 201 });
   } catch {
-    if (imageKey) await env.BUCKET?.delete(imageKey).catch(() => {});
+    if (imageKey) await images().delete(imageKey).catch(() => {});
     return NextResponse.json({ error: 'Could not save product' }, { status: 503 });
   }
 }

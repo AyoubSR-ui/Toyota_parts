@@ -1,6 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { startStorage } from './railway-storage.mjs';
 
 const configPath = resolve('dist/server/wrangler.json');
 const { ADMIN_USERNAME, ADMIN_PASSWORD_HASH, ADMIN_AUTH_SECRET, RAILWAY_VOLUME_MOUNT_PATH, PORT } = process.env;
@@ -9,12 +11,21 @@ if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !ADMIN_AUTH_SECRET) {
   process.exit(1);
 }
 const secrets = { ADMIN_USERNAME, ADMIN_PASSWORD_HASH, ADMIN_AUTH_SECRET };
+let storage;
+if (process.env.DATABASE_URL) {
+  const token = randomBytes(32).toString('hex');
+  storage = await startStorage(process.env.DATABASE_URL, token);
+  secrets.INTERNAL_STORAGE_URL = 'http://127.0.0.1:8788';
+  secrets.INTERNAL_STORAGE_TOKEN = token;
+}
 writeFileSync(resolve('dist/server/.dev.vars'), Object.entries(secrets).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n') + '\n', { mode: 0o600 });
 
 const wrangler = resolve('node_modules/wrangler/bin/wrangler.js');
 const command = (...args) => [process.execPath, '--import', resolve('scripts/sites-env.mjs'), wrangler, ...args];
 const persistence = RAILWAY_VOLUME_MOUNT_PATH || resolve('.wrangler/state');
-if (!RAILWAY_VOLUME_MOUNT_PATH) {
+if (storage) {
+  console.log('Using PostgreSQL for products, images, and requests.');
+} else if (!RAILWAY_VOLUME_MOUNT_PATH) {
   console.warn('Persistent storage is not attached. Product and request storage is unavailable on Railway.');
 } else {
   const args = command('d1', 'execute', 'DB', '--local', '--config', configPath, '--persist-to', persistence, '--file', resolve('scripts/railway-schema.sql'));
@@ -25,4 +36,4 @@ if (!RAILWAY_VOLUME_MOUNT_PATH) {
 const args = command('dev', '--config', configPath, '--local', '--persist-to', persistence, '--ip', '0.0.0.0', '--port', PORT || '8000', '--inspector-port', '0');
 const child = spawn(args[0], args.slice(1), { stdio: 'inherit' });
 for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => child.kill(signal));
-child.on('exit', (code) => process.exit(code ?? 1));
+child.on('exit', async (code) => { await storage?.close(); process.exit(code ?? 1); });
