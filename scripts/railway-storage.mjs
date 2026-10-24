@@ -17,8 +17,8 @@ export async function startStorage(connectionString, token, port = 8788) {
       const url = new URL(request.url, 'http://localhost');
       if (url.pathname === '/query' && request.method === 'POST') {
         const { sql, params = [] } = JSON.parse((await readBody(request, 128 * 1024)).toString());
-        // Only application reads/inserts are allowed; never accept SQL from a public request.
-        if (typeof sql !== 'string' || !/^(SELECT|INSERT)\s/i.test(sql) || sql.includes(';') || !Array.isArray(params)) return json(400, { error: 'Invalid query' });
+        // Only application reads/writes are allowed; never accept SQL from a public request.
+        if (typeof sql !== 'string' || !/^(SELECT|INSERT|UPDATE)\s/i.test(sql) || sql.includes(';') || !Array.isArray(params)) return json(400, { error: 'Invalid query' });
         let index = 0;
         let query = sql.replace(/\?/g, () => `$${++index}`);
         const insert = /^INSERT\s/i.test(query);

@@ -22,3 +22,9 @@ The Railway admin uses `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (PBKDF2-SHA256, `
 ### Railway PostgreSQL storage
 Set `DATABASE_URL` to the existing PostgreSQL service reference and use `pnpm start:railway`. Startup creates `products`, `leads`, and `product_images` with non-destructive, idempotent SQL from `scripts/postgres-schema.sql`. Product images (JPG/PNG/WebP, up to 5 MB) are stored as PostgreSQL binary data on the database's persistent volume.
 A token-protected Node storage bridge listens only on container loopback; the Worker calls it for database and image operations. Database credentials remain in Node and are never sent to the browser or committed. Existing Cloudflare hosting continues using its D1/R2 bindings when this bridge is absent. Database backups must include all three tables.
+
+### Catalog management
+Admins can edit products, replace/remove photos, and delete products from the catalog. Deletion is recoverable with Undo and retains the record and image. Public catalog queries exclude deleted products. Prices are optional non-negative amounts in DZD; products also have Original/Commercial type and country of manufacture. Customer requests accept an optional VIN or frame number, shown in the admin requests list.
+PostgreSQL adds the new columns on startup. D1 schema changes are tracked in Drizzle migration 0002.
+
+Incoming customer requests are displayed in a searchable, bilingual table on `/admin/requests`, protected by the same admin login. The Products and Requests navigation links separate catalog work from enquiries.

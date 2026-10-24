@@ -1,0 +1,5 @@
+'use client';
+export function AdminHeader({ ar, passwordLogin, page, onToggle }: { ar:boolean; passwordLogin:boolean; page:'products'|'requests'; onToggle:()=>void }) {
+  async function logout(){await fetch('/api/admin/logout',{method:'POST'});window.location.assign('/admin/login');}
+  return <header className="topbar"><div className="shell topbar-inner admin-topbar"><a className="brand" href="/admin"><img src="/toyota-logo.png" alt="Toyota"/>{ar?'إدارة Toyota Parts':'Toyota Parts Admin'}</a><nav className="nav admin-nav" aria-label={ar?'الإدارة':'Admin navigation'}><a href="/admin" aria-current={page==='products'?'page':undefined}>{ar?'المنتجات':'Products'}</a><a href="/admin/requests" aria-current={page==='requests'?'page':undefined}>{ar?'الطلبات':'Requests'}</a><a href="/" className="store-link">{ar?'المتجر':'Store'}</a>{passwordLogin&&<button onClick={logout}>{ar?'خروج':'Sign out'}</button>}<button onClick={onToggle}>{ar?'English':'العربية'}</button></nav></div></header>;
+}

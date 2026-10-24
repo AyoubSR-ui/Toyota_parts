@@ -4,7 +4,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   if (!/^[1-9]\d*$/.test(id)) return new Response('Not found', { status: 404 });
   try {
-    const row = await database().prepare('SELECT image_key FROM products WHERE id = ?').bind(Number(id)).first<{ image_key: string | null }>();
+    const row = await database().prepare('SELECT image_key FROM products WHERE id = ? AND deleted_at IS NULL').bind(Number(id)).first<{ image_key: string | null }>();
     if (!row?.image_key) return new Response('Not found', { status: 404 });
     const object = await images().get(row.image_key);
     if (!object) return new Response('Not found', { status: 404 });

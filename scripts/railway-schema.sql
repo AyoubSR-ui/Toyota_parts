@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS products (
   description_ar text,
   price text,
   image_key text,
+  part_type text,
+  manufacture_country text,
+  deleted_at text,
   created_at text DEFAULT '' NOT NULL
 );
 CREATE TABLE IF NOT EXISTS leads (
@@ -24,5 +27,6 @@ CREATE TABLE IF NOT EXISTS leads (
   note text,
   order_type text NOT NULL,
   quantity integer,
+  vin_frame text,
   created_at text DEFAULT '' NOT NULL
 );

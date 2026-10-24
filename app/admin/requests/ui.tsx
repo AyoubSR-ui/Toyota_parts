@@ -1,0 +1,21 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { AdminHeader } from '@/components/admin-header';
+import { Input } from '@/components/ui/input';
+type Lead={id:number;name:string;phone:string;brand:string;part_name:string;reference:string|null;model:string;year:number;note:string|null;order_type:string;quantity:number|null;vin_frame:string|null;created_at:string};
+export default function RequestsClient({passwordLogin}:{passwordLogin:boolean}) {
+  const [ar,setAr]=useState(false);const [leads,setLeads]=useState<Lead[]>([]);const [search,setSearch]=useState('');
+  const [loading,setLoading]=useState(true);const [error,setError]=useState('');
+  async function refresh(){setLoading(true);setError('');try{const response=await fetch('/api/leads',{cache:'no-store'});if(!response.ok)throw Error();setLeads(await response.json());}catch{setError(ar?'تعذر تحميل الطلبات. يرجى المحاولة مجدداً.':'Could not load requests. Please try again.');}finally{setLoading(false);}}
+  useEffect(()=>{void refresh()},[]);
+  const query=search.trim().toLocaleLowerCase();
+  const filtered=leads.filter(lead=>[lead.id,lead.name,lead.phone,lead.brand,lead.part_name,lead.reference,lead.model,lead.year,lead.vin_frame,lead.note].some(value=>String(value??'').toLocaleLowerCase().includes(query)));
+  const columns=ar?['رقم الطلب','التاريخ','الاسم','رقم الهاتف','العلامة','اسم القطعة','الرقم المرجعي','موديل السيارة','السنة','رقم VIN أو رقم الهيكل','نوع الطلب','العدد','ملاحظة']:['Request','Date','Name','Phone','Brand','Part name','Reference','Car model','Year','VIN or frame','Order type','Quantity','Note'];
+  function date(value:string){const parsed=new Date(value);return Number.isNaN(parsed.getTime())?'—':parsed.toLocaleString(ar?'ar-DZ':'en-GB');}
+  return <div dir={ar?'rtl':'ltr'}><AdminHeader ar={ar} passwordLogin={passwordLogin} page="requests" onToggle={()=>setAr(!ar)}/><main className="shell admin-main requests-main">
+    <div className="section-head"><div><h1 style={{fontSize:36,margin:0}}>{ar?'الطلبات الواردة':'Incoming requests'}</h1><p>{ar?'طلبات العملاء وبيانات السيارات — آخر 200 طلب':'Customer enquiries and vehicle details — latest 200 requests'}</p></div><button className="secondary-button" disabled={loading} onClick={refresh}>{loading?'...':ar?'تحديث':'Refresh'}</button></div>
+    <section className="admin-panel requests-panel"><div className="requests-toolbar"><label className="field">{ar?'البحث في الطلبات':'Search requests'}<Input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder={ar?'الاسم، الهاتف، القطعة أو VIN':'Name, phone, part or VIN'}/></label><span className="muted" aria-live="polite">{ar?`${filtered.length} طلب`:`${filtered.length} requests`}</span></div>
+      {error?<p role="alert" className="notice error">{error}</p>:<div className="requests-table-wrap" tabIndex={0} role="region" aria-label={ar?'جدول الطلبات، قابل للتمرير أفقياً':'Requests table, scroll horizontally'}><table className="requests-table"><caption>{ar?'طلبات قطع الغيار':'Parts requests'}</caption><thead><tr>{columns.map(column=><th scope="col" key={column}>{column}</th>)}</tr></thead><tbody>{loading&&leads.length===0?<tr><td colSpan={columns.length}>{ar?'جارٍ تحميل الطلبات…':'Loading requests…'}</td></tr>:filtered.length===0?<tr><td colSpan={columns.length}>{query?(ar?'لا توجد نتائج مطابقة.':'No matching requests.'):(ar?'لا توجد طلبات بعد.':'No requests yet.')}</td></tr>:filtered.map(lead=><tr key={lead.id}><th scope="row">#{lead.id}</th><td className="date-cell">{date(lead.created_at)}</td><td>{lead.name}</td><td><a className="phone-link" dir="ltr" href={'tel:'+lead.phone}>{lead.phone}</a></td><td>{lead.brand}</td><td>{lead.part_name}</td><td><bdi>{lead.reference||'—'}</bdi></td><td>{lead.model}</td><td>{lead.year}</td><td><bdi>{lead.vin_frame||'—'}</bdi></td><td>{lead.order_type==='wholesale'?(ar?'جملة':'Wholesale'):(ar?'قطعة واحدة':'One piece')}</td><td>{lead.order_type==='single'?1:lead.quantity??'—'}</td><td className="note-cell">{lead.note||'—'}</td></tr>)}</tbody></table></div>}
+    </section>
+  </main></div>;
+}

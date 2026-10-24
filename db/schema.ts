@@ -12,6 +12,9 @@ export const products = sqliteTable('products', {
   descriptionAr: text('description_ar'),
   price: text('price'),
   imageKey: text('image_key'),
+  partType: text('part_type', { enum: ['original', 'commercial'] }),
+  manufactureCountry: text('manufacture_country'),
+  deletedAt: text('deleted_at'),
   createdAt: text('created_at').notNull().default(''),
 });
 
@@ -27,5 +30,6 @@ export const leads = sqliteTable('leads', {
   note: text('note'),
   orderType: text('order_type', { enum: ['single', 'wholesale'] }).notNull(),
   quantity: integer('quantity'),
+  vinFrame: text('vin_frame'),
   createdAt: text('created_at').notNull().default(''),
 });
