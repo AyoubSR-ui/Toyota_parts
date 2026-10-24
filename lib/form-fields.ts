@@ -8,7 +8,7 @@ export const requestFields = [
   {key:'year',en:'Year',ar:'سنة الصنع',required:true},
   {key:'orderType',en:'Order type',ar:'نوع الطلب',required:true},
   {key:'quantity',en:'Quantity',ar:'العدد',required:false},
-  {key:'vinFrame',en:'Search by VIN or frame number',ar:'البحث برقم VIN أو رقم الهيكل',required:false},
+  {key:'vinFrame',en:'Search by VIN or frame number',ar:'أدخل رقم VIN أو رقم الهيكل',required:false},
   {key:'image',en:'Part photo',ar:'صورة القطعة',required:false},
   {key:'note',en:'Note',ar:'ملاحظة',required:false},
 ] as const;
