@@ -1,2 +1,2 @@
 import { showMemberAccounts } from '@/lib/features';
-export function MarketHeader(){return <header className="topbar market-topbar"><div className="shell topbar-inner"><a className="brand" href="/">Toyota Parts</a><nav className="nav market-nav"><a href="/search">البحث عن قطعة</a>{showMemberAccounts&&<a href="/account">حسابي ومخزوني</a>}<a href="/">المتجر</a></nav></div></header>;}
+export function MarketHeader(){return <header className="topbar market-topbar"><div className="shell topbar-inner"><a className="brand" href="/">Toyota Parts</a><nav className="nav market-nav"><a href="/search">البحث عن قطعة</a>{showMemberAccounts&&<a href="/account">حسابي ومخزوني</a>}<a href="/">المتجر</a><a href="/admin">الإدارة</a></nav></div></header>;}
