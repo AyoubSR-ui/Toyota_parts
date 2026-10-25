@@ -1,0 +1,4 @@
+import QRCode from 'qrcode';
+import { currentMember } from '@/lib/member-auth';
+import { storeSlug } from '@/lib/stores';
+export async function GET(request:Request){const member=await currentMember();if(!member)return new Response('Unauthorized',{status:401});const url=new URL(request.url);const origin=['localhost','127.0.0.1'].includes(url.hostname)?url.origin:'https://'+url.host;const slug=storeSlug(member);try{const png=await QRCode.toBuffer(origin+'/stores/'+slug,{type:'png',width:768,margin:4,errorCorrectionLevel:'M'});return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Disposition':`${url.searchParams.has('download')?'attachment':'inline'}; filename="${slug}-qr.png"`}});}catch{return new Response('Could not generate QR',{status:503});}}

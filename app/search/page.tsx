@@ -1,2 +1,2 @@
-import { MarketSearch } from '@/components/market-search';
-export default function SearchPage(){return <MarketSearch/>;}
+import { PlatformHome } from '@/components/platform-home';
+export default function SearchPage(){return <PlatformHome/>;}

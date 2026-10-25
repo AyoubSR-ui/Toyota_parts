@@ -1,2 +1,3 @@
-import { showMemberAccounts } from '@/lib/features';
-export function MarketHeader(){return <header className="topbar market-topbar"><div className="shell topbar-inner"><a className="brand" href="/">Toyota Parts</a><nav className="nav market-nav"><a href="/search">البحث عن قطعة</a>{showMemberAccounts&&<a href="/account">حسابي ومخزوني</a>}<a href="/">المتجر</a><a href="/admin">الإدارة</a></nav></div></header>;}
+'use client';
+import { useLocale,LanguagePicker } from '@/components/locale';
+export function MarketHeader(){const {t,locale}=useLocale();return <header className="topbar market-topbar"><div className="shell topbar-inner"><a className="brand" href="/">Auto Part</a><nav className="nav market-nav"><a href="/#stores">{t("المتاجر")}</a><a href="/dashboard">{t("لوحة متجري")}</a><a href="/account">{t("تسجيل الدخول")}</a><LanguagePicker/></nav></div></header>;}

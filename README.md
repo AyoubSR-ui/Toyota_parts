@@ -1,51 +1,35 @@
-# Toyota Parts
+# Auto Part
 
-Bilingual Arabic/English Toyota and Nissan spare parts site. Customers can browse products and submit single-piece or wholesale requests. Admins can add products with optional JPG, PNG, or WebP images (up to 5 MB) and review requests at `/admin`.
+Multi-tenant storefront SaaS for auto-parts businesses. Each owner has one independent store, dashboard, inventory, branding and customer enquiries. Arabic, English and French interfaces are included. Payments and subscriptions are intentionally not implemented yet.
 
-## Run locally
+## Main routes
+- `/`: Auto Part platform homepage and published-store directory.
+- `/account`: store registration and sign-in. `/account?mode=register` starts registration.
+- `/dashboard`: authenticated owner's dashboard.
+- `/stores/:slug`: branded public storefront. Only that store's products are queried.
+- `/stores/:slug/admin`: owner-only dashboard entry; a different owner receives 404.
+- `/stores/toyota-parts`: founding Toyota Parts store.
+- `/admin/login`: existing administrator login for the founding Toyota Parts account. Old admin pages forward to its new dashboard; member accounts cannot authorize legacy admin APIs.
+- `/sellers/:id`: compatibility redirect to the canonical store URL.
 
-```bash
-pnpm install
-pnpm dev
-```
+## Store controls
+Owners manage the store name, unique slug, logo, city, WhatsApp, brands, publication status, card/list layout, page background, five dark hero presets, button/accent color, and Arabic/English/French hero titles and descriptions. Three text suggestions and a live preview are provided.
 
-For deployment on Sites, the logical D1 binding is `DB` and product images use the `BUCKET` R2 binding. Run `pnpm db:generate` after schema changes. The checked-in migrations create the `products` and `leads` tables and add product image keys. Do not put customer phone numbers in source control.
+Inventory records include purchase cost, selling price (DZD), quantity, SKU, translated names, reference, model, compatible years, compatibility, original/commercial type, manufacturing country, description and photo. Each item can be featured on the storefront or left accessible through that store's inventory search. Per-item checkboxes select public fields. Purchase cost is always private. Global and per-item price visibility are enforced by public API redaction; public responses never select purchase costs.
 
-The initial deployment is owner-private. The admin routes require ChatGPT sign-in. Before opening the storefront to the public, set the `ADMIN_EMAIL` runtime variable to the administrator's sign-in email so signed-in customers cannot use admin APIs. Public storefront access and any production contact workflow should be configured before launch.
+Customer requests and uploaded enquiry photos are scoped to their receiving store. Each owner has independent required/visible form settings. The Arabic guided chat uses the current store's data and routes requests to that store. Store QR codes are generated as PNG files using a bundled QR encoder; owners can preview, download, copy links and invoke device-native sharing. No third-party QR or AI API is used.
 
-## Railway deployment
+## Persistence and migration
+Railway starts with `pnpm start:railway`. `scripts/railway-storage.mjs` exposes a bearer-protected loopback-only bridge to PostgreSQL. `scripts/postgres-schema.sql` applies additive schema updates, then `scripts/founding-store.sql` idempotently creates Toyota Parts and imports legacy products, images, saved form settings and requests. Original product rows remain intact. Imported quantities are marked unconfirmed instead of presented as verified stock counts. Existing admin credentials authorize only the founding store's account. Its reserved slug remains fixed to preserve that access.
 
-The start script listens on `0.0.0.0` and `${PORT:-8000}` to match Railway's public service port. The original persistence bindings (`DB` and `BUCKET`) belong to the Sites deployment. Railway's local Wrangler bindings do not share that production data; configure durable Railway-compatible storage before using Railway for customer requests or product uploads.
+D1/R2 schema changes are tracked in Drizzle migrations through 0012. Existing member slugs are backfilled; new stores receive unique defaults that owners can customize. Members, inventory and leads use owner identifiers; every private inventory query/mutation is constrained by the authenticated owner. Storefront product search requires an explicit store scope. Unpublished stores are removed from public routes and the directory.
 
-The Railway admin uses `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (PBKDF2-SHA256, `iterations:salt:hash` with base64url values), and `ADMIN_AUTH_SECRET` as runtime variables. Run `pnpm start:railway` there. A Railway volume mounted at `/data` is required for durable D1/R2 local storage; the startup script initializes its schema only when `RAILWAY_VOLUME_MOUNT_PATH` is provided. Never commit credentials to Git.
+Image namespaces are separate: `products`, `requests`, `members`, `inventory`. Railway stores image bytes in corresponding PostgreSQL image tables; D1 installations use R2. Uploaded images accept JPG/PNG/WebP up to 5 MB with signature checks.
 
-### Railway PostgreSQL storage
-Set `DATABASE_URL` to the existing PostgreSQL service reference and use `pnpm start:railway`. Startup creates `products`, `leads`, and `product_images` with non-destructive, idempotent SQL from `scripts/postgres-schema.sql`. Product images (JPG/PNG/WebP, up to 5 MB) are stored as PostgreSQL binary data on the database's persistent volume.
-A token-protected Node storage bridge listens only on container loopback; the Worker calls it for database and image operations. Database credentials remain in Node and are never sent to the browser or committed. Existing Cloudflare hosting continues using its D1/R2 bindings when this bridge is absent. Database backups must include all three tables.
+## Configuration
+Railway requires `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, `ADMIN_AUTH_SECRET` and the platform `PORT`. Credentials are passed to the Worker through a gitignored `.dev.vars` file at startup. Member sessions are signed, purpose-separated, HttpOnly cookies with persisted rate limits and salted PBKDF2 hashes. Email remains private. Public store contact details are disclosed on registration.
 
-### Catalog management
-Admins can edit products, replace/remove photos, and delete products from the catalog. Deletion is recoverable with Undo and retains the record and image. Public catalog queries exclude deleted products. Prices are optional non-negative amounts in DZD; products also have Original/Commercial type and country of manufacture. Customer requests accept an optional VIN or frame number, shown in the admin requests list.
-PostgreSQL adds the new columns on startup. D1 schema changes are tracked in Drizzle migration 0002.
+## Validation
+Run `npx tsc --noEmit`, `pnpm build`, then `python scripts/test-members.py`. The integration test launches a local Worker and isolated in-memory database. It validates separate store accounts, migration idempotence, private inventory/costs, public field redaction, featured-vs-full inventory search, slug uniqueness, publication, tenant dashboards, per-store leads/settings, images, QR PNG output, sessions, CSRF and rate limiting. It creates no production fixtures.
 
-Incoming customer requests are displayed in a searchable, bilingual table on `/admin/requests`, protected by the same admin login. The Products and Requests navigation links separate catalog work from enquiries.
-
-### Optional request photos
-The public part-request form accepts one optional JPG, PNG, or WebP photo (up to 5 MB), with a preview and remove button. Requests may also be submitted without a photo; the API retains JSON support and accepts multipart form uploads. Request photos are stored separately in `request_images`, linked by `leads.image_key`. Admins can open them from the Requests table; the image endpoint requires admin authentication and sends private/no-store cache headers. Startup applies the additive PostgreSQL schema migration; the D1 column is tracked in Drizzle migration 0003.
-
-Request contact numbers use a fixed Algeria (+213) WhatsApp prefix. The client and API accept national, international, spaced and Arabic-digit mobile numbers and normalize valid entries to `+213` plus nine digits. The Requests table labels them as WhatsApp numbers and links valid numbers to WhatsApp. Existing request records are preserved. Public form fields include bilingual guidance and example placeholders.
-
-### Saved request-form rules
-Admins configure all 12 customer-request fields at `/admin/form` using Show and Required controls, then save. Configuration is persisted in `form_settings` and fetched without caching by the public form. The API independently enforces the saved rules, ignores hidden field values, and permits nulls for disabled/optional request details while preserving existing records. At least one field must remain visible and a submitted request must contain at least one detail. Quantity follows wholesale selection, or is always available when order type is hidden. Configuration read failures stop submissions rather than bypassing required fields. Drizzle migration 0004 tracks the nullable request columns and settings table; PostgreSQL applies these changes at startup.
-
-### Seller accounts and inventory marketplace
-- `/account` supports email/password registration, login, logout, public store profiles, Algerian WhatsApp numbers, city, and up to 30 custom brands. Email stays private; store contact/profile details are explicitly public.
-- Member sessions use a separate, purpose-bound HMAC cookie and salted PBKDF2 password hashes. They cannot authorize admin routes. Same-origin JSON mutations and persisted login rate limits protect account endpoints. Railway uses the existing server-side signing secret; no new external API is needed.
-- Each member creates, edits and soft-deletes only their own inventory. Every update includes both inventory ID and owner ID. Quantity zero and deleted items are excluded from public search. Prices are per unit in DZD.
-- `/search` searches references, names and vehicle compatibility in both the admin catalog and member inventory. `/sellers/:id` displays one seller's public profile and available inventory, with WhatsApp contact links. Results are capped at 100 per source; refine the query when capped.
-- `members`, `inventory`, and `auth_limits` are initialized by the PostgreSQL startup schema; Drizzle migration 0007 covers D1. These changes preserve existing products and requests.
-- This initial release does not verify email ownership or provide automated password recovery. No email provider or AI API is configured.
-- Verify with `npx tsc --noEmit`, `pnpm build`, then `python scripts/test-members.py`. The integration test runs against an isolated in-memory database and local Worker; it creates no production accounts or stock.
-
-Store identity is editable in the Profile tab: store name and a public JPG/PNG/WebP logo up to 5 MB. Logos are owned by the authenticated member, stored persistently in `member_images` on Railway (R2 on D1), and shown on public profiles and search cards. Uploads validate content signatures; replacing/removing a logo cleans up the prior object. Migration 0008 adds `members.logo_key`.
-
-Profile branding also includes add/remove brand chips (save to persist) and a validated hexadecimal background color with presets and live preview. The chosen background applies to the member account and public seller page; cards keep readable colors. Removing a brand changes the profile and future inventory choices and does not delete existing stock. Migration 0009 stores the background per account.
+Automated email verification and password recovery are not configured in this first release. Custom domains, multiple staff accounts, billing and subscriptions remain future work.

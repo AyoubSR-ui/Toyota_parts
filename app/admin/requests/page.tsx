@@ -6,5 +6,5 @@ export const dynamic = 'force-dynamic';
 export default async function RequestsPage() {
   const passwordLogin=usesPasswordLogin();
   if(passwordLogin){if(!(await isAdmin()))redirect('/admin/login');}else await requireChatGPTUser('/admin/requests');
-  return <RequestsClient passwordLogin={passwordLogin}/>;
+  redirect('/dashboard?tab=requests');
 }
