@@ -13,7 +13,7 @@ export default function LoginPage() {
     try {
       const response = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
       if (!response.ok) throw new Error();
-      window.location.assign(new URLSearchParams(window.location.search).get('platform')==='1'?'/platform-admin':'/admin');
+      window.location.assign('/platform-admin');
     } catch {
       setError(ar ? 'اسم المستخدم أو كلمة المرور غير صحيحة.' : 'Incorrect username or password.'); setBusy(false);
     }

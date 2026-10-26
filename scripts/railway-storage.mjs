@@ -8,6 +8,15 @@ export async function startStorage(connectionString, token, port = 8788) {
   const pool = new pg.Pool({ connectionString, max: 5, connectionTimeoutMillis: 10000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
   await pool.query(readFileSync(new URL('./postgres-schema.sql', import.meta.url), 'utf8'));
   await pool.query(readFileSync(new URL('./founding-store.sql', import.meta.url), 'utf8'));
+  // One-time setup for the imported store. Never overwrite configured owner credentials.
+  const ownerEmail=process.env.TOYOTA_OWNER_SETUP_EMAIL;
+  const ownerHash=process.env.TOYOTA_OWNER_SETUP_PASSWORD_HASH;
+  if(ownerEmail&&ownerHash){
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)||!/^[-_A-Za-z0-9]+:[-_A-Za-z0-9]+$/.test(ownerHash))throw new Error('Invalid store owner setup configuration');
+    const ownerSetup=await pool.query("UPDATE members SET email=$1,password_hash=$2,account_type='member' WHERE store_slug='toyota-parts' AND password_hash='disabled'",[ownerEmail.toLowerCase(),ownerHash]);
+    console.log(`Imported store owner setup applied: ${ownerSetup.rowCount}`);
+  }
+
   console.log('PostgreSQL ready: products, leads, product_images, request_images.');
   const expected = Buffer.from(`Bearer ${token}`);
   const server = http.createServer(async (request, response) => {

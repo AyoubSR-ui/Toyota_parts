@@ -77,10 +77,24 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   payload=base64.urlsafe_b64encode(json.dumps({'user':'test-admin','exp':int(time.time()*1000)+600000}).encode()).decode().rstrip('=')
   signature=base64.urlsafe_b64encode(hmac.new(b'local-test-signing-secret',payload.encode(),hashlib.sha256).digest()).decode().rstrip('=')
   admin='toyota_admin_session='+payload+'.'+signature
-  toyota=call('/api/account',cookie=admin)[1]
-  assert call('/api/account','PUT',{'display_name':'Toyota Parts','phone':'0555123456','brands':['Toyota','Nissan'],'store_slug':'new-toyota'},admin)[0]==400
-  assert toyota['store_slug']=='toyota-parts' and toyota['account_type']=='platform'
-  assert call('/api/inventory',cookie=admin)[1][0]['reference']=='LEGACY-TOYOTA'
+  assert call('/api/account',cookie=admin)[0]==401
+  toyota_id=conn.execute("SELECT id FROM members WHERE store_slug='toyota-parts'").fetchone()[0]
+  assert call('/api/owner-setup','POST',{'action':'invite','id':toyota_id})[0]==401
+  invitation=call('/api/owner-setup','POST',{'action':'invite','id':toyota_id},admin)[1]
+  setup_values=urllib.parse.parse_qs(urllib.parse.urlparse(invitation['url']).fragment)
+  setup={'action':'complete','id':toyota_id,'token':setup_values['token'][0],'email':'toyota-owner@example.test','password':'Local-test-Only-123'}
+  assert call('/api/owner-setup','POST',{**setup,'token':'invalid'})[0]==400
+  assert call('/api/owner-setup','POST',setup)[0]==200
+  assert call('/api/owner-setup','POST',setup)[0]==400
+  login=call('/api/account/auth','POST',{'action':'login','email':setup['email'],'password':setup['password']})
+  assert login[0]==200
+  toyota_cookie=login[2]['Set-Cookie'].split(';')[0]
+  toyota=call('/api/account',cookie=toyota_cookie)[1]
+  assert call('/api/platform-admin',cookie=toyota_cookie)[0]==401
+  assert call('/api/inventory',cookie=admin)[0]==401
+  assert call('/api/account','PUT',{'display_name':'Toyota Parts','phone':'0555123456','brands':['Toyota','Nissan'],'store_slug':'new-toyota'},toyota_cookie)[0]==400
+  assert toyota['store_slug']=='toyota-parts' and toyota['account_type']=='member'
+  assert call('/api/inventory',cookie=toyota_cookie)[1][0]['reference']=='LEGACY-TOYOTA'
   assert call('/api/stores/toyota-parts')[1]['products'][0]['price']=='7300'
   alice=register('alice@example.test');bob=register('bob@example.test')
   assert call('/api/inventory')[0]==401
@@ -134,7 +148,9 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   for _ in range(5):guest_status=call('/api/support','POST',public_ticket)[0]
   assert guest_status==429
 
-  assert call('/api/platform-admin','POST',{'action':'store-status','id':toyota['id'],'suspended':True},admin)[0]==403
+  assert call('/api/platform-admin','POST',{'action':'store-status','id':toyota['id'],'suspended':True},admin)[0]==200
+  assert call('/api/account',cookie=toyota_cookie)[0]==401
+  assert call('/api/platform-admin','POST',{'action':'store-status','id':toyota['id'],'suspended':False},admin)[0]==200
   assert call('/api/platform-admin','POST',{'action':'store-status','id':profile['id'],'suspended':True},admin)[0]==200
   assert call('/api/account',cookie=alice)[0]==401
   assert call('/api/inventory',cookie=alice)[0]==401
@@ -196,7 +212,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/leads','POST',{**lead,'note':'For Alice only'})[0]==201
   assert call('/api/store-requests',cookie=alice)[1][0]['name']=='Client A'
   assert call('/api/store-requests',cookie=bob)[1]==[]
-  assert call('/api/store-requests',cookie=admin)[1]==[]
+  assert call('/api/store-requests',cookie=admin)[0]==401
   assert call('/api/leads',cookie=admin)[1]==[]
   formB=call('/api/form-settings?store='+bob_slug)[1]
   assert formB['fields']['note']['required'] is False
