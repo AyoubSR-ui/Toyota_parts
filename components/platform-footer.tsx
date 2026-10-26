@@ -1,0 +1,5 @@
+'use client';
+import { usePathname } from 'next/navigation';
+import { useLocale } from '@/components/locale';
+import { AutoPartLogo } from '@/components/auto-part-logo';
+export function PlatformFooter(){const path=usePathname();const {locale}=useLocale();if(path.startsWith('/stores/')||path.startsWith('/sellers/'))return null;const ar=locale==='ar';const fr=locale==='fr';return <footer className="platform-footer" dir={ar?'rtl':'ltr'}><div className="shell platform-footer-row"><a className="brand" href="/"><AutoPartLogo/></a><nav aria-label="Legal and support"><a href="/privacy">{ar?'الخصوصية':fr?'Confidentialité':'Privacy'}</a><a href="/terms">{ar?'الشروط':fr?'Conditions':'Terms'}</a><a href="/support">{ar?'الدعم':fr?'Assistance':'Support'}</a></nav><div><small>© 2026 Auto Part. {ar?'جميع الحقوق محفوظة.':fr?'Tous droits réservés.':'All rights reserved.'}</small><small>{ar?'تُشغّلها NEROUSCALEAI LLC':fr?'Exploitée par NEROUSCALEAI LLC':'Operated by NEROUSCALEAI LLC'}</small></div></div></footer>;}
