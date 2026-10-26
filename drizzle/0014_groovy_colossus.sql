@@ -1,0 +1,1 @@
+ALTER TABLE `members` ADD `platform_suspended` integer DEFAULT 0 NOT NULL;

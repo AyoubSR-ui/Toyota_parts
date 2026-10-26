@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS form_settings (id text PRIMARY KEY NOT NULL, value te
 
 CREATE TABLE IF NOT EXISTS members (
  id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
- display_name TEXT NOT NULL, phone TEXT NOT NULL, city TEXT, brands TEXT NOT NULL, logo_key TEXT, store_slug TEXT UNIQUE, store_reference TEXT UNIQUE, account_type TEXT NOT NULL DEFAULT 'member', show_prices INTEGER NOT NULL DEFAULT 1, description TEXT, hero_background TEXT NOT NULL DEFAULT '#171b20', hero_eyebrow TEXT,hero_title_ar TEXT,hero_title_en TEXT,hero_text_ar TEXT,hero_text_en TEXT,hero_title_fr TEXT,hero_text_fr TEXT, accent_color TEXT NOT NULL DEFAULT '#e31837', store_layout TEXT NOT NULL DEFAULT 'cards', is_published INTEGER NOT NULL DEFAULT 1, background_color TEXT NOT NULL DEFAULT '#f5f6f8', created_at TEXT NOT NULL
+ display_name TEXT NOT NULL, phone TEXT NOT NULL, city TEXT, brands TEXT NOT NULL, logo_key TEXT, store_slug TEXT UNIQUE, store_reference TEXT UNIQUE, platform_suspended INTEGER NOT NULL DEFAULT 0, account_type TEXT NOT NULL DEFAULT 'member', show_prices INTEGER NOT NULL DEFAULT 1, description TEXT, hero_background TEXT NOT NULL DEFAULT '#171b20', hero_eyebrow TEXT,hero_title_ar TEXT,hero_title_en TEXT,hero_text_ar TEXT,hero_text_en TEXT,hero_title_fr TEXT,hero_text_fr TEXT, accent_color TEXT NOT NULL DEFAULT '#e31837', store_layout TEXT NOT NULL DEFAULT 'cards', is_published INTEGER NOT NULL DEFAULT 1, background_color TEXT NOT NULL DEFAULT '#f5f6f8', created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS inventory (
  id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL REFERENCES members(id), name TEXT NOT NULL,

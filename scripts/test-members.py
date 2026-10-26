@@ -108,6 +108,29 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/stores?q=tp-alger-01')[1]==[]
   assert call('/api/account','PUT',reference_profile,alice)[0]==200
   assert 'password_hash' not in results[0] and 'email' not in results[0]
+  assert call('/api/platform-admin')[0]==401
+  assert call('/api/platform-admin',cookie=alice)[0]==401
+  assert call('/api/platform-admin','POST',{'action':'settings','brands':['X'],'support_email':''},alice)[0]==401
+  assert call('/api/platform-admin',cookie=admin)[0]==200
+  assert call('/api/platform-admin','POST',{'action':'settings','brands':['Custom','Toyota'],'support_email':'support@example.test'},admin,'https://evil.test')[0]==403
+  assert call('/api/platform-admin','POST',{'action':'settings','brands':['Custom','Toyota'],'support_email':'support@example.test'},admin)[0]==200
+  assert call('/api/platform/settings')[1]['brands']==['Custom','Toyota']
+  assert call('/api/support','POST',{'subject':'Local support test','message':'Please help with store setup'},alice)[0]==200
+  ticket=call('/api/support',cookie=alice)[1][0]
+  assert call('/api/support',cookie=bob)[1]==[]
+  assert call('/api/platform-admin',cookie=admin)[1]['tickets'][0]['id']==ticket['id']
+  assert call('/api/platform-admin','POST',{'action':'ticket-status','id':ticket['id'],'status':'resolved'},admin)[0]==200
+  assert call('/api/support',cookie=alice)[1][0]['status']=='resolved'
+  assert call('/api/platform-admin','POST',{'action':'store-status','id':toyota['id'],'suspended':True},admin)[0]==403
+  assert call('/api/platform-admin','POST',{'action':'store-status','id':profile['id'],'suspended':True},admin)[0]==200
+  assert call('/api/account',cookie=alice)[0]==401
+  assert call('/api/inventory',cookie=alice)[0]==401
+  assert call('/api/stores/'+alice_slug)[0]==404
+  assert call('/api/account/auth','POST',{'action':'login','email':'alice@example.test','password':'Local-test-Only-123'})[0]==403
+  assert call('/api/platform-admin','POST',{'action':'store-status','id':profile['id'],'suspended':False},admin)[0]==200
+  assert call('/api/account',cookie=alice)[0]==200
+  assert call('/api/stores/'+alice_slug)[0]==404
+  assert call('/api/account','PUT',{'display_name':'Alpha Test Parts','phone':'0555123456','brands':['Toyota'],'is_published':True},alice)[0]==200
   assert 'password_hash' not in profile
   assert profile['background_color']=='#f5f6f8'
   assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','city':'تقرت','brands':['Toyota','Suzuki'],'background_color':'#17202b'},alice)[0]==200

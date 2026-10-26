@@ -35,3 +35,6 @@ Run `npx tsc --noEmit`, `pnpm build`, then `python scripts/test-members.py`. The
 Automated email verification and password recovery are not configured in this first release. Custom domains, multiple staff accounts, billing and subscriptions remain future work.
 
 Store discovery is search-only: the homepage and `/api/stores` return no listings without a non-empty query. Search matches store names and optional unique references (3–32 Latin letters, digits or hyphens, normalized to uppercase). Owners manage references in their profile; references do not change store URLs or QR codes.
+
+## Auto Part platform administration
+`/platform-admin` is restricted to the existing configured password administrator (the founding operator). Store-owner accounts cannot access it. The dashboard lists stores/owners, suspends and reactivates accounts without deletion, handles authenticated owner support requests, and configures suggested brands and an optional public support email. Suspended stores are unpublished and existing owner sessions are blocked; reactivation permits owners to republish. `/support` accepts owner tickets and exposes only that owner's history. Payments and separate staff roles are not implemented.

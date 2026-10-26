@@ -99,3 +99,5 @@ ALTER TABLE inventory ADD COLUMN IF NOT EXISTS catalog_fields TEXT;
 
 ALTER TABLE members ADD COLUMN IF NOT EXISTS store_reference TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS members_store_reference_unique ON members(store_reference);
+
+ALTER TABLE members ADD COLUMN IF NOT EXISTS platform_suspended INTEGER NOT NULL DEFAULT 0;
