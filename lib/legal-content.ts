@@ -7,7 +7,7 @@ export const legalContent={
       },
       {
         "title": "Information collected",
-        "text": "Owner accounts include an email address, password hash, store name, WhatsApp number, city if provided, brands, store reference and customization settings. Inventory may include product names, references, images, vehicle compatibility, quantities and purchase/selling prices. Parts requests may include your name, WhatsApp number, requested part, vehicle model/year, VIN or frame number, order type, quantity, notes and an optional photo, depending on the store’s form settings. Support requests contain their subject, message, account association and status. Hosting and security systems may process IP addresses, request times and technical logs. Do not upload identity documents, payment card details or unrelated sensitive information."
+        "text": "Owner accounts include an email address, password hash, store name, WhatsApp number, city if provided, brands, store reference and customization settings. Inventory may include product names, references, images, vehicle compatibility, quantities and purchase/selling prices. Parts requests may include your name, WhatsApp number, requested part, vehicle model/year, VIN or frame number, order type, quantity, notes and an optional photo, depending on the store’s form settings. Support requests contain your name, phone, optional store reference, subject, message, status and account association if signed in. Visitors can submit without an account. The guided FAQ assistant uses preset answers; choosing an answer does not submit a support enquiry. Hosting and security systems may process IP addresses, request times and technical logs. Do not upload identity documents, payment card details or unrelated sensitive information."
       },
       {
         "title": "Purposes and visibility",
@@ -27,7 +27,7 @@ export const legalContent={
       },
       {
         "title": "Contact and updates",
-        "text": "Use the Support page for available contact options and account support tickets. This policy may change as the service develops. Updates will be published here with a revised date. Where applicable law requires additional notice or consent, it must be provided before the relevant new use."
+        "text": "Use the Support page for available contact options and the enquiry form, available without an account. This policy may change as the service develops. Updates will be published here with a revised date. Where applicable law requires additional notice or consent, it must be provided before the relevant new use."
       }
     ],
     "ar": [
@@ -37,7 +37,7 @@ export const legalContent={
       },
       {
         "title": "المعلومات التي نجمعها",
-        "text": "تشمل حسابات المالك البريد الإلكتروني وبصمة كلمة المرور واسم المتجر ورقم واتساب والمدينة إن أُدخلت والعلامات ومرجع المتجر وإعدادات التصميم. وقد يشمل المخزون أسماء القطع والمراجع والصور والتوافق والكميات وأسعار الشراء والبيع. قد يتضمن طلب القطعة الاسم ورقم واتساب والقطعة المطلوبة وموديل السيارة وسنتها ورقم VIN أو الهيكل ونوع الطلب والكمية والملاحظات وصورة اختيارية حسب إعدادات نموذج المتجر. تتضمن طلبات الدعم الموضوع والرسالة والحساب المرتبط والحالة. قد تعالج أنظمة الاستضافة والأمان عناوين IP وأوقات الطلبات والسجلات التقنية. لا ترفع وثائق الهوية أو بيانات البطاقات أو معلومات حساسة غير مرتبطة بالطلب."
+        "text": "تشمل حسابات المالك البريد الإلكتروني وبصمة كلمة المرور واسم المتجر ورقم واتساب والمدينة إن أُدخلت والعلامات ومرجع المتجر وإعدادات التصميم. وقد يشمل المخزون أسماء القطع والمراجع والصور والتوافق والكميات وأسعار الشراء والبيع. قد يتضمن طلب القطعة الاسم ورقم واتساب والقطعة المطلوبة وموديل السيارة وسنتها ورقم VIN أو الهيكل ونوع الطلب والكمية والملاحظات وصورة اختيارية حسب إعدادات نموذج المتجر. تتضمن طلبات الدعم الاسم والهاتف ومرجع المتجر الاختياري والموضوع والرسالة والحالة والحساب عند تسجيل الدخول. يمكن الإرسال دون حساب. يستخدم المساعد إجابات جاهزة ولا يُرسل اختيار سؤال طلب دعم. قد تعالج أنظمة الاستضافة والأمان عناوين IP وأوقات الطلبات والسجلات التقنية. لا ترفع وثائق الهوية أو بيانات البطاقات أو معلومات حساسة غير مرتبطة بالطلب."
       },
       {
         "title": "الأغراض وما يظهر للعموم",
@@ -57,7 +57,7 @@ export const legalContent={
       },
       {
         "title": "التواصل والتحديثات",
-        "text": "استخدم صفحة الدعم للاطلاع على وسائل التواصل المتاحة وإرسال تذكرة من حسابك. قد تتغير السياسة مع تطور الخدمة، وتُنشر التحديثات هنا بتاريخ جديد. عند اشتراط القانون إشعاراً أو موافقة إضافية، يجب توفيرهما قبل الاستخدام الجديد المعني."
+        "text": "استخدم صفحة الدعم للاطلاع على وسائل التواصل المتاحة وإرسال استفسار دون الحاجة إلى حساب. قد تتغير السياسة مع تطور الخدمة، وتُنشر التحديثات هنا بتاريخ جديد. عند اشتراط القانون إشعاراً أو موافقة إضافية، يجب توفيرهما قبل الاستخدام الجديد المعني."
       }
     ],
     "fr": [
@@ -67,7 +67,7 @@ export const legalContent={
       },
       {
         "title": "Données collectées",
-        "text": "Les comptes comprennent l’e-mail, une empreinte du mot de passe, le nom de boutique, le numéro WhatsApp, la ville facultative, les marques, la référence et les réglages. Le stock peut inclure noms, références, images, compatibilité, quantités et prix d’achat/de vente. Les demandes peuvent contenir nom, WhatsApp, pièce, modèle/année, VIN ou châssis, type de commande, quantité, remarque et photo facultative selon le formulaire. Les tickets comprennent objet, message, compte et statut. L’hébergement et la sécurité peuvent traiter les adresses IP et journaux techniques. N’envoyez pas de documents d’identité, de données de carte ou d’informations sensibles sans rapport."
+        "text": "Les comptes comprennent l’e-mail, une empreinte du mot de passe, le nom de boutique, le numéro WhatsApp, la ville facultative, les marques, la référence et les réglages. Le stock peut inclure noms, références, images, compatibilité, quantités et prix d’achat/de vente. Les demandes peuvent contenir nom, WhatsApp, pièce, modèle/année, VIN ou châssis, type de commande, quantité, remarque et photo facultative selon le formulaire. Les tickets comprennent nom, téléphone, référence facultative, objet, message, statut et compte si connecté. Un visiteur peut envoyer sans compte. L’assistant utilise des réponses prédéfinies ; choisir une réponse n’envoie pas de ticket. L’hébergement et la sécurité peuvent traiter les adresses IP et journaux techniques. N’envoyez pas de documents d’identité, de données de carte ou d’informations sensibles sans rapport."
       },
       {
         "title": "Finalités et visibilité",
@@ -87,7 +87,7 @@ export const legalContent={
       },
       {
         "title": "Contact et mises à jour",
-        "text": "Consultez la page Assistance pour les moyens de contact et les tickets depuis votre compte. Cette politique peut évoluer ; sa date sera mise à jour. Toute information ou autorisation supplémentaire exigée par la loi doit précéder le nouvel usage concerné."
+        "text": "Consultez la page Assistance pour les moyens de contact et le formulaire accessible sans compte. Cette politique peut évoluer ; sa date sera mise à jour. Toute information ou autorisation supplémentaire exigée par la loi doit précéder le nouvel usage concerné."
       }
     ]
   },

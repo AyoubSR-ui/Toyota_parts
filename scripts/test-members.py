@@ -115,12 +115,25 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/platform-admin','POST',{'action':'settings','brands':['Custom','Toyota'],'support_email':'support@example.test'},admin,'https://evil.test')[0]==403
   assert call('/api/platform-admin','POST',{'action':'settings','brands':['Custom','Toyota'],'support_email':'support@example.test'},admin)[0]==200
   assert call('/api/platform/settings')[1]['brands']==['Custom','Toyota']
-  assert call('/api/support','POST',{'subject':'Local support test','message':'Please help with store setup'},alice)[0]==200
+  assert call('/api/support','POST',{'name':'Local owner','phone':'0555123456','store_reference':'TP-ALGER-01','subject':'Local support test','message':'Please help with store setup'},alice)[0]==200
   ticket=call('/api/support',cookie=alice)[1][0]
   assert call('/api/support',cookie=bob)[1]==[]
   assert call('/api/platform-admin',cookie=admin)[1]['tickets'][0]['id']==ticket['id']
   assert call('/api/platform-admin','POST',{'action':'ticket-status','id':ticket['id'],'status':'resolved'},admin)[0]==200
   assert call('/api/support',cookie=alice)[1][0]['status']=='resolved'
+  public_ticket={'name':'Guest customer','phone':'0555000001','store_reference':'TP-ALGER-01','subject':'Guest enquiry','message':'I need platform support without an account'}
+  assert call('/api/support','POST',{**public_ticket,'phone':'invalid'})[0]==400
+  assert call('/api/support','POST',{**public_ticket,'website':'spam.example'})[0]==400
+  assert call('/api/support','POST',public_ticket,request_origin='https://untrusted.test')[0]==403
+  status,guest_result,_=call('/api/support','POST',public_ticket)
+  assert status==200 and guest_result['request_id']
+  assert call('/api/support')[0]==401
+  assert len(call('/api/support',cookie=alice)[1])==1
+  guest=[t for t in call('/api/platform-admin',cookie=admin)[1]['tickets'] if t.get('name')=='Guest customer'][0]
+  assert guest['owner_id'] is None and guest['phone']=='+213555000001' and guest['store_reference']=='TP-ALGER-01'
+  for _ in range(5):guest_status=call('/api/support','POST',public_ticket)[0]
+  assert guest_status==429
+
   assert call('/api/platform-admin','POST',{'action':'store-status','id':toyota['id'],'suspended':True},admin)[0]==403
   assert call('/api/platform-admin','POST',{'action':'store-status','id':profile['id'],'suspended':True},admin)[0]==200
   assert call('/api/account',cookie=alice)[0]==401
@@ -249,7 +262,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   with lock:
    hashes=[row[0] for row in conn.execute('SELECT password_hash FROM members')]
   assert len(set(hashes))==3 and all('Local-test' not in value for value in hashes)
-  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation, store name, brand removal, theme persistence and validation, tenant/store isolation, hidden public prices, featured inventory, private leads and settings, founding-store import, private dashboard routes, QR PNG generation, search-only store discovery and unique editable references')
+  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation, store name, brand removal, theme persistence and validation, tenant/store isolation, hidden public prices, featured inventory, private leads and settings, founding-store import, private dashboard routes, QR PNG generation, search-only store discovery and unique editable references, platform admin authorization, suspension, settings, private and public support, support validation and spam limits')
  finally:
   p.terminate()
   try:p.wait(timeout=10)
