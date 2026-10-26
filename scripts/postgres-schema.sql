@@ -96,3 +96,6 @@ ALTER TABLE inventory ADD COLUMN IF NOT EXISTS years TEXT;
 ALTER TABLE inventory ADD COLUMN IF NOT EXISTS manufacture_country TEXT;
 ALTER TABLE inventory ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE inventory ADD COLUMN IF NOT EXISTS catalog_fields TEXT;
+
+ALTER TABLE members ADD COLUMN IF NOT EXISTS store_reference TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS members_store_reference_unique ON members(store_reference);

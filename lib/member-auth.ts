@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { database } from '@/lib/storage';
 const encoder=new TextEncoder();
 export const memberCookie='toyota_member_session';
-export type Member={id:number;email:string;display_name:string;phone:string;city:string|null;brands:string;password_hash:string;logo_key:string|null;background_color:string;store_slug:string|null;description:string|null;accent_color:string;store_layout:string;is_published:number;account_type:string;show_prices:number;hero_background:string;hero_eyebrow:string|null;hero_title_ar:string|null;hero_title_en:string|null;hero_title_fr:string|null;hero_text_ar:string|null;hero_text_en:string|null;hero_text_fr:string|null;};
+export type Member={id:number;email:string;display_name:string;phone:string;city:string|null;brands:string;password_hash:string;logo_key:string|null;background_color:string;store_slug:string|null;store_reference:string|null;description:string|null;accent_color:string;store_layout:string;is_published:number;account_type:string;show_prices:number;hero_background:string;hero_eyebrow:string|null;hero_title_ar:string|null;hero_title_en:string|null;hero_title_fr:string|null;hero_text_ar:string|null;hero_text_en:string|null;hero_text_fr:string|null;};
 function secret(){const value=(env as unknown as {ADMIN_AUTH_SECRET?:string}).ADMIN_AUTH_SECRET;if(!value)throw Error('Authentication unavailable');return value;}
 function encode(bytes:Uint8Array){return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function decode(s:string){return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));}

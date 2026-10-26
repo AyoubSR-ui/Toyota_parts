@@ -33,3 +33,5 @@ Railway requires `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, `ADMIN
 Run `npx tsc --noEmit`, `pnpm build`, then `python scripts/test-members.py`. The integration test launches a local Worker and isolated in-memory database. It validates separate store accounts, migration idempotence, private inventory/costs, public field redaction, featured-vs-full inventory search, slug uniqueness, publication, tenant dashboards, per-store leads/settings, images, QR PNG output, sessions, CSRF and rate limiting. It creates no production fixtures.
 
 Automated email verification and password recovery are not configured in this first release. Custom domains, multiple staff accounts, billing and subscriptions remain future work.
+
+Store discovery is search-only: the homepage and `/api/stores` return no listings without a non-empty query. Search matches store names and optional unique references (3–32 Latin letters, digits or hyphens, normalized to uppercase). Owners manage references in their profile; references do not change store URLs or QR codes.

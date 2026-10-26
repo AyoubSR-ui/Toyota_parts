@@ -90,6 +90,24 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/search')[0]==400
   assert call('/api/account','PUT',{'display_name':'X','phone':'0555123456','brands':['Toyota'],'store_slug':bob_slug},alice)[0]==409
   assert call('/api/account','PUT',{'display_name':'X','phone':'0555123456','brands':['Toyota'],'store_slug':'toyota-parts'},alice)[0]==400
+  assert call('/api/stores')[1]==[]
+  assert call('/api/stores?q=%20%20')[1]==[]
+  reference_profile={'display_name':'Alpha Test Parts','phone':'0555123456','brands':['Toyota'],'store_reference':' tp-alger-01 '}
+  assert call('/api/account','PUT',reference_profile,alice)[0]==200
+  assert call('/api/account',cookie=alice)[1]['store_reference']=='TP-ALGER-01'
+  results=call('/api/stores?q=tp-ALGER-01')[1]
+  assert len(results)==1 and results[0]['id']==profile['id'] and results[0]['store_reference']=='TP-ALGER-01'
+  assert call('/api/stores?q=Alpha%20Test')[1][0]['id']==profile['id']
+  assert call('/api/stores?q=Toyota')[1] and all('toyota' in store['display_name'].lower() for store in call('/api/stores?q=Toyota')[1])
+  assert call('/api/stores?q=%25')[1]==[]
+  assert call('/api/stores?q=%27%20OR%201%3D1--')[1]==[]
+  assert call('/api/account','PUT',{**reference_profile,'store_reference':'TP-ALGER-01'},bob)[0]==409
+  assert call('/api/account','PUT',{**reference_profile,'store_reference':'bad ref'},alice)[0]==400
+  assert call('/api/account','PUT',{**reference_profile,'store_reference':'ab'},alice)[0]==400
+  assert call('/api/account','PUT',{**reference_profile,'store_reference':''},alice)[0]==200
+  assert call('/api/stores?q=tp-alger-01')[1]==[]
+  assert call('/api/account','PUT',reference_profile,alice)[0]==200
+  assert 'password_hash' not in results[0] and 'email' not in results[0]
   assert 'password_hash' not in profile
   assert profile['background_color']=='#f5f6f8'
   assert call('/api/account','PUT',{'display_name':'المتجر الأول','phone':'0555123456','city':'تقرت','brands':['Toyota','Suzuki'],'background_color':'#17202b'},alice)[0]==200
@@ -108,7 +126,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/account',cookie=bob)[1]['logo_url'] is None
   assert upload_logo(alice,b'not a PNG')==400
   assert upload_logo('')==401
-  assert call('/api/account/logo','DELETE',{},alice)[0]==200
+  logo_delete=call('/api/account/logo','DELETE',{},alice);assert logo_delete[0]==200,logo_delete[:2]
   assert call('/api/account',cookie=alice)[1]['logo_url'] is None
   assert upload_logo(alice)==200
   item={'name':'مضخة اختبار','brand':'Suzuki','reference':'LOCAL-123','compatibility':'Swift 2018–2024','price':'2500.50','quantity':'5','partType':'original','buyPrice':'1777.25','sku':'PRIVATE-SKU','country':'Japan','model':'Swift','years':'2018–2024','description':'Catalog description','nameEn':'Test pump','nameFr':'Pompe test'}
@@ -161,7 +179,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/account','PUT',{**design,'is_published':False},alice)[0]==200
   assert call('/api/stores/'+alice_slug)[0]==404
   assert call('/api/search?seller='+str(profile['id']))[0]==404
-  assert not any(store['store_slug']==alice_slug for store in call('/api/stores')[1])
+  assert not any(store['store_slug']==alice_slug for store in call('/api/stores?q=tp-alger-01')[1])
   assert call('/api/account','PUT',{**design,'is_published':True,'show_prices':True},alice)[0]==200
 
   def upload_product(cookie):
@@ -208,7 +226,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   with lock:
    hashes=[row[0] for row in conn.execute('SELECT password_hash FROM members')]
   assert len(set(hashes))==3 and all('Local-test' not in value for value in hashes)
-  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation, store name, brand removal, theme persistence and validation, tenant/store isolation, hidden public prices, featured inventory, private leads and settings, founding-store import, private dashboard routes, QR PNG generation')
+  print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation, store name, brand removal, theme persistence and validation, tenant/store isolation, hidden public prices, featured inventory, private leads and settings, founding-store import, private dashboard routes, QR PNG generation, search-only store discovery and unique editable references')
  finally:
   p.terminate()
   try:p.wait(timeout=10)
