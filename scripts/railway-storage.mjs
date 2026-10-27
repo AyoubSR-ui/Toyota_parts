@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
 
@@ -13,8 +13,26 @@ export async function startStorage(connectionString, token, port = 8788) {
   const ownerHash=process.env.TOYOTA_OWNER_SETUP_PASSWORD_HASH;
   if(ownerEmail&&ownerHash){
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)||!/^[-_A-Za-z0-9]+:[-_A-Za-z0-9]+$/.test(ownerHash))throw new Error('Invalid store owner setup configuration');
-    const ownerSetup=await pool.query("UPDATE members SET email=$1,password_hash=$2,account_type='member' WHERE store_slug='toyota-parts' AND password_hash='disabled'",[ownerEmail.toLowerCase(),ownerHash]);
-    console.log(`Imported store owner setup applied: ${ownerSetup.rowCount}`);
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      const target=await client.query("SELECT id,password_hash FROM members WHERE store_slug='toyota-parts' FOR UPDATE");
+      if(target.rows.length!==1)throw new Error('Imported store missing');
+      let applied=0,archived=0;
+      if(target.rows[0].password_hash==='disabled'){
+        const conflict=await client.query('SELECT id FROM members WHERE email=$1 AND id<>$2 FOR UPDATE',[ownerEmail.toLowerCase(),target.rows[0].id]);
+        if(conflict.rows.length){
+          if(process.env.TOYOTA_OWNER_REPLACE_EXISTING!=='1')throw new Error('Owner email is already assigned');
+          const oldId=conflict.rows[0].id;
+          const result=await client.query("UPDATE members SET email=$1,platform_suspended=1,is_published=0,account_type='archived' WHERE id=$2",[`archived-${oldId}-${randomUUID()}@autopart.internal`,oldId]);
+          archived=result.rowCount;
+        }
+        const result=await client.query("UPDATE members SET email=$1,password_hash=$2,account_type='member' WHERE id=$3 AND password_hash='disabled'",[ownerEmail.toLowerCase(),ownerHash,target.rows[0].id]);
+        applied=result.rowCount;
+      }
+      await client.query('COMMIT');
+      console.log(`Imported store owner setup applied: ${applied}; conflicting stores archived: ${archived}`);
+    }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
   }
 
   console.log('PostgreSQL ready: products, leads, product_images, request_images.');
