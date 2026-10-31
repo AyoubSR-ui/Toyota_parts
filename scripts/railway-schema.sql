@@ -50,3 +50,5 @@ CREATE TABLE IF NOT EXISTS inventory (
 );
 CREATE INDEX IF NOT EXISTS inventory_owner_idx ON inventory(owner_id);
 CREATE TABLE IF NOT EXISTS auth_limits (id TEXT PRIMARY KEY,hits INTEGER NOT NULL,reset_at INTEGER NOT NULL);
+
+ALTER TABLE inventory ADD COLUMN vehicle_brands TEXT;

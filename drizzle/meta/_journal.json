@@ -120,6 +120,13 @@
       "when": 1793485490154,
       "tag": "0016_aberrant_dexter_bennett",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1793486777141,
+      "tag": "0017_elite_bulldozer",
+      "breakpoints": true
     }
   ]
 }

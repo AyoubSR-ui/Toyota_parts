@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
+import { enrichInventory,referenceCandidates,exactImageUrls } from './enrich-inventory.mjs';
+const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('./railway-schema.sql',import.meta.url),'utf8'));
+const pool={async connect(){return {...this,release(){}}},async query(sql,params=[]){
+ if(['BEGIN','COMMIT','ROLLBACK'].includes(sql)){db.exec(sql);return {rows:[],rowCount:0};}
+ const values=[];sql=sql.replace(/ FOR UPDATE/g,'').replace(/\$(\d+)/g,(_,n)=>{values.push(params[Number(n)-1]);return '?'});
+ const rows=db.prepare(sql).all(...values);return {rows,rowCount:db.prepare('SELECT changes() AS changes').get().changes};
+}};
+for(const [email,slug] of [['owner@example.test','store-a'],['other@example.test','store-b']])db.prepare('INSERT INTO members(email,password_hash,display_name,phone,brands,store_slug,created_at) VALUES(?,?,?,?,?,?,?)').run(email,'private','Store','+213555123456','["Toyota"]',slug,'2026-10-31');
+for(let id=1;id<=3;id++)db.prepare('INSERT INTO inventory(owner_id,name,brand,reference,buy_price,price,quantity,is_featured,part_type,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id===3?2:1,'Part','',`REF-${id}`,'2500','3200',3,0,'unspecified','2026-10-31');
+db.prepare('INSERT INTO form_settings(id,value) VALUES(?,?)').run('inventory-import:1:test',JSON.stringify({sourceSha:'test-source',count:2,ids:[1,2]}));
+const payload={ownerEmail:'owner@example.test',storeSlug:'store-a',sourceSha:'test-source',rows:[{sourceRow:2,reference:'REF-1',brands:['Toyota','Nissan']},{sourceRow:3,reference:'REF-2',brands:[]}]};
+const encode=x=>gzipSync(JSON.stringify(x)).toString('base64');
+assert.ok(await enrichInventory(pool,encode(payload)));
+assert.deepEqual(JSON.parse(db.prepare('SELECT vehicle_brands FROM inventory WHERE id=1').get().vehicle_brands),['Toyota','Nissan']);
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM inventory WHERE owner_id=1 AND is_featured=1').get().n,2);
+assert.equal(db.prepare('SELECT is_featured FROM inventory WHERE id=3').get().is_featured,0);
+assert.equal(db.prepare('SELECT SUM(quantity) AS n FROM inventory').get().n,9);
+assert.equal(db.prepare('SELECT buy_price FROM inventory WHERE id=1').get().buy_price,'2500');
+db.prepare('UPDATE inventory SET is_featured=0 WHERE id=1').run();await enrichInventory(pool,encode(payload));assert.equal(db.prepare('SELECT is_featured FROM inventory WHERE id=1').get().is_featured,0,'Repeat must preserve later owner edits');
+assert.equal(await enrichInventory(pool,encode({...payload,ownerEmail:'other@example.test'})),undefined);
+assert.equal(await enrichInventory(pool,encode({...payload,rows:[payload.rows[0],{...payload.rows[1],reference:'wrong'}]})),undefined);
+assert.equal(db.prepare('SELECT is_featured FROM inventory WHERE id=1').get().is_featured,0,'Mismatch rolls back all changes');
+assert.ok(referenceCandidates('11-FS202/16711-0L050').includes('167110L050'));
+assert.deepEqual(exactImageUrls('<img src="/assets/PartThumbnail/assets/partsimages/Toyota/111151701003-0.jpg"><img src="/assets/tesseract/assets/partsimages/Toyota/111151704003-0.jpg">','11115-17040-03'),['https://partsouq.com/assets/PartThumbnail/assets/partsimages/Toyota/111151704003-0.jpg']);
+assert.deepEqual(exactImageUrls('<img src="https://other.test/x.jpg">','REF-1'),[]);
+console.log('PASS: source identity, tenant isolation, multi-brand publication, no price/quantity changes, idempotence preserves owner edits, mismatch rollback, exact images exclude substitutes');

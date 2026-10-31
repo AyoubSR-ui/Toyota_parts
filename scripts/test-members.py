@@ -280,6 +280,26 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   with lock:
    hashes=[row[0] for row in conn.execute('SELECT password_hash FROM members')]
   assert len(set(hashes))==3 and all('Local-test' not in value for value in hashes)
+  # Large catalogs remain fully accessible; multi-brand filters match whole names only.
+  with lock:
+   for n in range(105):
+    conn.execute("INSERT INTO inventory(owner_id,name,brand,vehicle_brands,reference,price,buy_price,quantity,part_type,is_featured,catalog_fields,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",(profile['id'],'Pagination fixture','Toyota','["Toyota","Nissan"]','PAGE-'+str(n),'3200','2600',3,'unspecified',1,'{}','2026-10-31'))
+   conn.commit()
+  pages=[call('/api/stores/'+alice_slug+'?brand=Nissan&page='+str(n))[1] for n in (1,2,3)]
+  assert all(page['total']==105 for page in pages),pages[0]
+  assert [len(page['products']) for page in pages]==[48,48,9]
+  assert len({row['id'] for page in pages for row in page['products']})==105
+  assert pages[0]['hasMore'] and not pages[2]['hasMore']
+  assert all('buy_price' not in row for page in pages for row in page['products'])
+  assert call('/api/stores/'+alice_slug+'?brand=Niss')[1]['total']==0
+  assert call('/api/stores/'+bob_slug+'?brand=Nissan')[1]['total']==0
+  assert call('/api/stores/'+alice_slug+'?brand=Nissan&page=999')[1]['page']==3
+  assert call('/api/stores/'+alice_slug+'?brand=Nissan&page=invalid')[1]['page']==1
+  with lock:
+   conn.execute("UPDATE inventory SET catalog_fields=? WHERE reference LIKE 'PAGE-%'",(json.dumps({'brand':False}),));conn.commit()
+  redacted=call('/api/stores/'+alice_slug+'?brand=Nissan')[1]['products'][0]
+  assert redacted['brand'] is None and redacted['vehicle_brands']==[]
+  print('PASS: 105-product pagination, multi-brand exact filters, price privacy, tenant isolation and brand redaction')
   print('PASS: registration/login/logout, private profiles, brands, inventory ownership, search/prices, zero-stock/deleted filtering, CSRF, session tampering, password hashing, rate limits, logo upload/read/remove and isolation, store name, brand removal, theme persistence and validation, tenant/store isolation, hidden public prices, featured inventory, private leads and settings, founding-store import, private dashboard routes, QR PNG generation, search-only store discovery and unique editable references, platform admin authorization, suspension, settings, private and public support, support validation and spam limits')
  finally:
   p.terminate()
