@@ -34,3 +34,5 @@ assert.equal(exactDealImages(exact,'11115-17040-03','www.toyotapartsdeal.com').l
 assert.deepEqual(exactDealImages(exact,'11115-17010-03','www.toyotapartsdeal.com'),[]);
 assert.deepEqual(exactDealImages(exact,'11115-17040-03','www.nissanpartsdeal.com'),[]);
 console.log('PASS: independent supplier product images require exact MPN and approved source host');
+
+assert.ok(!referenceCandidates('17801-26020/40').includes('178012602040'),'Short cross-reference suffixes must not be joined into an invented OEM number');

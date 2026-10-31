@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const normalize=value=>value.toUpperCase().replace(/[^A-Z0-9]/g,'');
 export function referenceCandidates(reference){
- const values=[reference,...reference.split(/[\/;,]/),...(reference.match(/(?<![A-Za-z0-9])\d{5}-{1,2}[A-Za-z0-9]{5}(?:-\d{2})?(?![A-Za-z0-9])/g)||[])];
+ const values=[...reference.split(/[\/;,]/),...(reference.match(/(?<![A-Za-z0-9])\d{5}-{1,2}[A-Za-z0-9]{5}(?:-\d{2})?(?![A-Za-z0-9])/g)||[])];
  return [...new Set(values.map(x=>normalize(x.trim().replace(/\s+(LH|RH|L|R)$/i,''))).filter(x=>/^[A-Z0-9]{4,24}$/.test(x)))];
 }
 export function exactImageUrls(html,reference){
