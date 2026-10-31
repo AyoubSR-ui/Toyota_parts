@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { enrichInventory,referenceCandidates,exactImageUrls } from './enrich-inventory.mjs';
+import { enrichInventory,referenceCandidates,exactImageUrls,exactDealImages } from './enrich-inventory.mjs';
 const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('./railway-schema.sql',import.meta.url),'utf8'));
 const pool={async connect(){return {...this,release(){}}},async query(sql,params=[]){
  if(['BEGIN','COMMIT','ROLLBACK'].includes(sql)){db.exec(sql);return {rows:[],rowCount:0};}
@@ -28,3 +28,9 @@ assert.ok(referenceCandidates('11-FS202/16711-0L050').includes('167110L050'));
 assert.deepEqual(exactImageUrls('<img src="/assets/PartThumbnail/assets/partsimages/Toyota/111151701003-0.jpg"><img src="/assets/tesseract/assets/partsimages/Toyota/111151704003-0.jpg">','11115-17040-03'),['https://partsouq.com/assets/PartThumbnail/assets/partsimages/Toyota/111151704003-0.jpg']);
 assert.deepEqual(exactImageUrls('<img src="https://other.test/x.jpg">','REF-1'),[]);
 console.log('PASS: source identity, tenant isolation, multi-brand publication, no price/quantity changes, idempotence preserves owner edits, mismatch rollback, exact images exclude substitutes');
+
+const exact='<script type="application/ld+json">'+JSON.stringify({'@type':'Product',mpn:'11115-17040-03',image:['https://www.toyotapartsdeal.com/resources/encry/actual-picture/tpd/large/test.jpg']})+'</script>';
+assert.equal(exactDealImages(exact,'11115-17040-03','www.toyotapartsdeal.com').length,1);
+assert.deepEqual(exactDealImages(exact,'11115-17010-03','www.toyotapartsdeal.com'),[]);
+assert.deepEqual(exactDealImages(exact,'11115-17040-03','www.nissanpartsdeal.com'),[]);
+console.log('PASS: independent supplier product images require exact MPN and approved source host');

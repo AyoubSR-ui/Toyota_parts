@@ -14,6 +14,16 @@ export function exactImageUrls(html,reference){
  }
  return urls.slice(0,3);
 }
+export function exactDealImages(html,reference,host){
+ const candidates=new Set(referenceCandidates(reference)),urls=[];
+ for(const match of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){
+  let data;try{data=JSON.parse(match[1]);}catch{continue;}
+  for(const product of Array.isArray(data)?data:[data,...(data['@graph']||[])]){
+   if(product['@type']!=='Product'||!candidates.has(normalize(product.mpn||product.sku||'')))continue;
+   for(const value of Array.isArray(product.image)?product.image:[product.image]){if(typeof value!=='string')continue;try{const url=new URL(value,'https://'+host);if(url.hostname===host&&url.pathname.startsWith('/resources/encry/actual-picture/')&&/\.(jpg|jpeg|png|webp)$/i.test(url.pathname))urls.push(url.href);}catch{}}
+  }
+ }return [...new Set(urls)].slice(0,3);
+}
 // A separate payload targets the original source-row IDs; it can never insert inventory.
 export async function enrichInventory(pool,encoded=[process.env.INVENTORY_ENRICH_GZIP_BASE64,process.env.INVENTORY_ENRICH_GZIP_BASE64_2,process.env.INVENTORY_ENRICH_GZIP_BASE64_3,process.env.INVENTORY_ENRICH_GZIP_BASE64_4].filter(Boolean).join('')){
  if(!encoded)return;
@@ -45,35 +55,55 @@ export async function enrichInventory(pool,encoded=[process.env.INVENTORY_ENRICH
 }
 export async function enrichReferenceImages(pool,job){
  if(!job)return;
- const {payload,ownerId,ids,key}=job;let attached=0,existing=0,unavailable=0,processed=0,blocked=false;const cache=new Map();
- const cached=await pool.query('SELECT value FROM form_settings WHERE id=$1',[key+':photos']);let state={};try{state=JSON.parse(cached.rows[0]?.value||'{}');}catch{}
- const save=()=>pool.query('INSERT INTO form_settings (id,value) VALUES ($1,$2) ON CONFLICT (id) DO UPDATE SET value=EXCLUDED.value',[key+':photos',JSON.stringify(state)]);
- async function find(reference){
-  if(cache.has(reference))return cache.get(reference);
-  const task=(async()=>{
-   for(const candidate of referenceCandidates(reference)){
-    if(blocked)return null;
-    try{
-     const response=await fetch('https://partsouq.com/en/search/all?q='+encodeURIComponent(candidate),{signal:AbortSignal.timeout(15000),redirect:'error'});
-     if([403,429].includes(response.status)){blocked=true;return null;}
-     if(!response.ok)continue;const html=await response.text();if(html.length>5*1024*1024)continue;
-     for(const url of exactImageUrls(html,candidate)){
-      const photo=await fetch(url,{signal:AbortSignal.timeout(15000),redirect:'error'});if([403,429].includes(photo.status)){blocked=true;return null;}
-      if(!photo.ok)continue;const data=Buffer.from(await photo.arrayBuffer());const type=photo.headers.get('content-type')?.split(';')[0];
-      const valid=type==='image/jpeg'?data[0]===255&&data[1]===216&&data[2]===255:type==='image/png'?data.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):type==='image/webp'?data.toString('ascii',0,4)==='RIFF'&&data.toString('ascii',8,12)==='WEBP':false;
-      if(data.length>=1000&&data.length<=5*1024*1024&&valid)return {url,data,type};
-     }
-    }catch{}
-   }return null;
-  })();cache.set(reference,task);return task;
+ const {payload,ownerId,ids,key}=job;let attached=0,existing=0,unavailable=0,processed=0;const cache=new Map();
+ const cached=await pool.query('SELECT value FROM form_settings WHERE id=$1',[key+':photos:deal-v1']);let state={};try{state=JSON.parse(cached.rows[0]?.value||'{}');}catch{}
+ const save=()=>pool.query('INSERT INTO form_settings (id,value) VALUES ($1,$2) ON CONFLICT (id) DO UPDATE SET value=EXCLUDED.value',[key+':photos:deal-v1',JSON.stringify(state)]);
+ const blockedHosts=new Set();
+ async function publicFetch(url){
+  const host=new URL(url).hostname;if(blockedHosts.has(host))return null;
+  for(let redirects=0;redirects<5;redirects++){
+   const response=await fetch(url,{signal:AbortSignal.timeout(15000),redirect:'manual'});
+   if([403,429].includes(response.status)){blockedHosts.add(host);return null;}
+   if(response.status>=300&&response.status<400){const next=new URL(response.headers.get('location')||'',url);if(next.hostname!==host)return null;url=next.href;continue;}return response;
+  }return null;
  }
+ async function download(url){
+  const photo=await publicFetch(url);if(!photo?.ok)return null;
+  const data=Buffer.from(await photo.arrayBuffer()),type=photo.headers.get('content-type')?.split(';')[0];
+  const valid=type==='image/jpeg'?data[0]===255&&data[1]===216&&data[2]===255:type==='image/png'?data.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):type==='image/webp'?data.toString('ascii',0,4)==='RIFF'&&data.toString('ascii',8,12)==='WEBP':false;
+  return data.length>=1000&&data.length<=5*1024*1024&&valid?{url,data,type}:null;
+ }
+ let approved={};try{approved=JSON.parse(process.env.INVENTORY_REFERENCE_PHOTOS||'{}');}catch{}
+ async function find(reference,brands){
+  const cacheKey=brands.join(',')+':'+reference;if(cache.has(cacheKey))return cache.get(cacheKey);
+  const task=(async()=>{
+   const candidates=referenceCandidates(reference);
+   for(const candidate of candidates){
+    const extra=approved[candidate];if(typeof extra==='string'){const url=new URL(extra);if(url.hostname==='kyb.com.br'&&url.pathname.startsWith('/storage/Products/'+candidate+'-')){const image=await download(extra);if(image)return image;}}
+   }
+   for(const brand of brands){
+    const host=brand==='Toyota'?'www.toyotapartsdeal.com':brand==='Nissan'?'www.nissanpartsdeal.com':null;
+    if(!host||blockedHosts.has(host))continue;
+    for(const candidate of candidates.filter(value=>/^\d{5}[A-Z0-9]{5}(\d{2})?$/.test(value))){
+     const part=(candidate.slice(0,5)+'-'+candidate.slice(5,10)+(candidate.length===12?'-'+candidate.slice(10):'')).toLowerCase();
+     const page='https://'+host+(brand==='Toyota'?'/oem/toyota~':'/parts/nissan~')+part+'.html';
+     try{
+      const response=await publicFetch(page);if(!response?.ok)continue;
+      const html=await response.text();if(html.length>5*1024*1024)continue;
+      for(const url of exactDealImages(html,candidate,host)){const image=await download(url);if(image)return image;}
+     }catch{}
+    }
+   }return null;
+  })();cache.set(cacheKey,task);return task;
+ }
+
  for(let i=0;i<payload.rows.length;i++){
-  const row=payload.rows[i],id=ids[i];if(blocked)break;
+  const row=payload.rows[i],id=ids[i];
   const item=await pool.query('SELECT image_key FROM inventory WHERE owner_id=$1 AND id=$2 AND deleted_at IS NULL',[ownerId,id]);
   if(!item.rows.length||item.rows[0].image_key){existing++;continue;}
   if(state[id]?.complete){unavailable++;continue;}
   if(!row.reference){state[id]={complete:true,status:'no-reference'};unavailable++;continue;}
-  const photo=await find(row.reference);if(blocked)break;processed++;
+  const photo=await find(row.reference,row.brands);processed++;
   if(!photo){state[id]={complete:true,status:'unavailable'};unavailable++;}
   else{
    const imageKey='inventory/reference-'+hash(key+':'+id)+'.'+(photo.type==='image/jpeg'?'jpg':photo.type.split('/')[1]);const client=await pool.connect();
@@ -84,5 +114,5 @@ export async function enrichReferenceImages(pool,job){
   }
   if(processed%25===0){await save();console.log(`Reference photo search: checked ${processed}; attached ${attached}; existing ${existing}; unavailable ${unavailable}`);}
  }
- await save();console.log(`Reference photo search ${blocked?'paused by source':'complete'}: checked ${processed}; attached ${attached}; existing ${existing}; unavailable ${unavailable}`);
+ await save();console.log(`Reference photo search complete: checked ${processed}; attached ${attached}; existing ${existing}; unavailable ${unavailable}; sources refused ${blockedHosts.size}`);
 }
