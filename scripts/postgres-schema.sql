@@ -101,3 +101,8 @@ ALTER TABLE members ADD COLUMN IF NOT EXISTS store_reference TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS members_store_reference_unique ON members(store_reference);
 
 ALTER TABLE members ADD COLUMN IF NOT EXISTS platform_suspended INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS manufacturer TEXT;
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS barcode TEXT;
+
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_is_reference INTEGER NOT NULL DEFAULT 0;

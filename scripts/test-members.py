@@ -181,7 +181,7 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   logo_delete=call('/api/account/logo','DELETE',{},alice);assert logo_delete[0]==200,logo_delete[:2]
   assert call('/api/account',cookie=alice)[1]['logo_url'] is None
   assert upload_logo(alice)==200
-  item={'name':'مضخة اختبار','brand':'Suzuki','reference':'LOCAL-123','compatibility':'Swift 2018–2024','price':'2500.50','quantity':'5','partType':'original','buyPrice':'1777.25','sku':'PRIVATE-SKU','country':'Japan','model':'Swift','years':'2018–2024','description':'Catalog description','nameEn':'Test pump','nameFr':'Pompe test'}
+  item={'name':'مضخة اختبار','brand':'Suzuki','reference':'LOCAL-123','compatibility':'Swift 2018–2024','price':'2500.50','quantity':'5','partType':'original','buyPrice':'1777.25','sku':'PRIVATE-SKU','country':'Japan','model':'Swift','years':'2018–2024','description':'Catalog description','nameEn':'Test pump','nameFr':'Pompe test','manufacturer':'AISIN','barcode':'1234567890123'}
   status,created,_=call('/api/inventory','POST',item,alice);assert status==201,(status,created)
   item_id=created['id']
   assert call('/api/inventory',cookie=bob)[1]==[]
@@ -196,11 +196,13 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/stores/'+bob_slug+'?view=inventory&q=LOCAL-123')[1]['products']==[]
   assert call('/api/stores/'+alice_slug+'?view=inventory&q=LEGACY-TOYOTA')[1]['products']==[]
   assert call('/api/search?seller='+str(profile['id'])+'&q=%25')[1]['items']==[]
-  hidden={**item,'isFeatured':False,'showPrice':False,'catalogFields':{'price':False,'reference':False,'country':False,'quantity':False,'description':False}}
+  assert call('/api/inventory',cookie=alice)[1][0]['manufacturer']=='AISIN'
+  assert call('/api/stores/'+alice_slug)[1]['products'][0]['manufacturer']=='AISIN'
+  hidden={**item,'isFeatured':False,'showPrice':False,'catalogFields':{'price':False,'reference':False,'country':False,'quantity':False,'description':False,'manufacturer':False,'barcode':False}}
   assert call(f'/api/inventory/{item_id}','PUT',hidden,alice)[0]==200
   assert call('/api/stores/'+alice_slug)[1]['products']==[]
   stock_result=call('/api/stores/'+alice_slug+'?view=inventory&q=LOCAL-123')[1]['products'][0]
-  assert stock_result['price'] is None and '2500' not in json.dumps(stock_result) and stock_result['reference'] is None and stock_result['quantity'] is None and stock_result['manufacture_country'] is None and stock_result['description'] is None
+  assert stock_result['price'] is None and '2500' not in json.dumps(stock_result) and stock_result['reference'] is None and stock_result['quantity'] is None and stock_result['manufacture_country'] is None and stock_result['description'] is None and stock_result['manufacturer'] is None and stock_result['barcode'] is None
   assert call('/api/inventory',cookie=alice)[1][0]['price']=='2500.5'
   assert call(f'/api/inventory/{item_id}','PUT',{**item,'showPrice':True,'isFeatured':True,'catalogFields':{}},alice)[0]==200
   settings=call('/api/form-settings?store='+alice_slug)[1]

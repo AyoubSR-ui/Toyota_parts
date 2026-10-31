@@ -2,6 +2,7 @@ import http from 'node:http';
 import { timingSafeEqual, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
+import { importInventory } from './import-inventory.mjs';
 
 // The Worker talks to this loopback-only bridge. Database credentials stay in Node.
 export async function startStorage(connectionString, token, port = 8788) {
@@ -35,6 +36,7 @@ export async function startStorage(connectionString, token, port = 8788) {
     }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
   }
 
+  await importInventory(pool);
   console.log('PostgreSQL ready: products, leads, product_images, request_images.');
   const expected = Buffer.from(`Bearer ${token}`);
   const server = http.createServer(async (request, response) => {

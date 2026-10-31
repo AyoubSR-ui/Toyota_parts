@@ -1,0 +1,1 @@
+ALTER TABLE `inventory` ADD `image_is_reference` integer DEFAULT 0 NOT NULL;

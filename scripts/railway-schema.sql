@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS inventory (
  brand TEXT NOT NULL, reference TEXT, compatibility TEXT, price TEXT,
  buy_price TEXT,sku TEXT,name_en TEXT,name_fr TEXT,model TEXT,years TEXT,manufacture_country TEXT,description TEXT,catalog_fields TEXT,
  legacy_product_id INTEGER UNIQUE,is_featured INTEGER NOT NULL DEFAULT 1,show_price INTEGER NOT NULL DEFAULT 1,stock_confirmed INTEGER NOT NULL DEFAULT 1,
- quantity INTEGER NOT NULL DEFAULT 0, part_type TEXT NOT NULL, image_key TEXT, deleted_at TEXT, created_at TEXT NOT NULL
+ image_is_reference INTEGER NOT NULL DEFAULT 0, manufacturer TEXT, barcode TEXT, quantity INTEGER NOT NULL DEFAULT 0, part_type TEXT NOT NULL, image_key TEXT, deleted_at TEXT, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS inventory_owner_idx ON inventory(owner_id);
 CREATE TABLE IF NOT EXISTS auth_limits (id TEXT PRIMARY KEY,hits INTEGER NOT NULL,reset_at INTEGER NOT NULL);
