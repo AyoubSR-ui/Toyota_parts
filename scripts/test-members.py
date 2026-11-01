@@ -236,14 +236,21 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert not any(store['store_slug']==alice_slug for store in call('/api/stores?q=tp-alger-01')[1])
   assert call('/api/account','PUT',{**design,'is_published':True,'show_prices':True},alice)[0]==200
 
-  def upload_product(cookie):
+  def upload_product(cookie,reference=False,empty_only=False):
    boundary='product-fixture-boundary'
    body=(f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="part.png"\r\nContent-Type: image/png\r\n\r\n').encode()+png+f'\r\n--{boundary}--\r\n'.encode()
+   extra=(f'--{boundary}\r\nContent-Disposition: form-data; name="referenceImage"\r\n\r\ntrue\r\n' if reference else '')+(f'--{boundary}\r\nContent-Disposition: form-data; name="onlyIfEmpty"\r\n\r\ntrue\r\n' if empty_only else '')
+   body=extra.encode()+body
    request=urllib.request.Request(origin+f'/api/inventory/{item_id}/image',data=body,method='POST',headers={'Cookie':cookie,'Origin':origin,'Content-Type':'multipart/form-data; boundary='+boundary})
    try:response=opener.open(request,timeout=25);response.read();return response.status
    except urllib.error.HTTPError as e:e.read();return e.code
   assert upload_product(bob)==404
   assert upload_product(alice)==200
+  assert call('/api/stores/'+alice_slug)[1]['products'][0]['image_is_reference']==0
+  assert upload_product(alice,reference=True)==200
+  assert call('/api/stores/'+alice_slug)[1]['products'][0]['image_is_reference']==1
+  assert upload_product(alice,empty_only=True)==409
+  assert call('/api/stores/'+alice_slug)[1]['products'][0]['image_is_reference']==1
   product_image=opener.open(origin+f'/api/inventory/{item_id}/image',timeout=25)
   assert product_image.read()==png
   assert call(f'/api/inventory/{item_id}','PUT',{**item,'catalogFields':{'image':False}},alice)[0]==200
