@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+const pixel='3676036822560836';
+const compiled=ts.transpileModule(readFileSync('lib/track-toyota-order.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const calls=[],storage=new Map(),exports={};const context={exports,require:()=>({toyotaPixelId:pixel}),window:{fbq:(...args)=>calls.push(args),sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)}}};vm.runInNewContext(compiled,context);const track=exports.trackToyotaOrder;
+const purchase={event:'Purchase',eventId:'toyota-parts-order-10',data:{currency:'DZD',value:21900,contents:[{id:'1',quantity:3,item_price:7300}],num_items:3}};
+track('another-store',purchase);track('toyota-parts',undefined);assert.equal(calls.length,0);
+track('toyota-parts',purchase);track('toyota-parts',purchase);assert.equal(calls.length,1);assert.equal(calls[0][0],'trackSingle');assert.equal(calls[0][1],pixel);assert.equal(calls[0][2],'Purchase');assert.equal(calls[0][3].value,21900);assert.equal(calls[0][4].eventID,purchase.eventId);
+track('toyota-parts',{...purchase,eventId:'toyota-parts-order-11',data:{...purchase.data,value:NaN}});assert.equal(calls.length,1);
+track('toyota-parts',{event:'Lead',eventId:'toyota-parts-request-12',data:{}});assert.equal(calls.length,2);assert.equal(calls[1][2],'Lead');
+context.window.fbq=()=>{throw Error('blocked')};assert.doesNotThrow(()=>track('toyota-parts',{...purchase,eventId:'toyota-parts-order-13'}));
+const code=readFileSync('components/toyota-meta-pixel.tsx','utf8').match(/\{`([\s\S]*?)`\}/)[1];const loader={document:{createElement:()=>({}),getElementsByTagName:()=>[{parentNode:{insertBefore(){}}}]}};loader.window=loader;vm.runInNewContext(code,loader);const commands=Array.from(loader.fbq.queue,args=>Array.from(args));assert.deepEqual(commands[0],['set','autoConfig',false,pixel]);assert.deepEqual(commands[1],['init',pixel]);assert.deepEqual(commands[2],['trackSingle',pixel,'PageView']);assert.equal(commands.length,3);
+console.log('PASS: automatic events disabled before init, scoped PageView, successful-order Purchase payload, duplicate suppression, tenant isolation and blocked analytics cannot break orders');

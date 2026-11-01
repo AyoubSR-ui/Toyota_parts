@@ -1,4 +1,6 @@
 'use client';
+import { trackToyotaOrder } from '@/lib/track-toyota-order';
+import type { OrderTracking } from '@/lib/toyota-order-tracking';
 import { useLocale } from '@/components/locale';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -6,9 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { normalizeAlgerianWhatsApp } from '@/lib/whatsapp';
 import { requestFields, type FieldKey, type FormSettings } from '@/lib/form-fields';
-export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChange,onSubmitted,guided=false,storeSlug,availableBrands,language}:{language?:'ar'|'en'|'fr';storeSlug?:string;availableBrands?:string[];guided?:boolean;ar:boolean;partName:string;brand:string;onPartNameChange:(value:string)=>void;onBrandChange:(value:string)=>void;onSubmitted:()=>void}) {
+export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChange,onSubmitted,guided=false,storeSlug,availableBrands,language,inventoryId}:{inventoryId?:number|null;language?:'ar'|'en'|'fr';storeSlug?:string;availableBrands?:string[];guided?:boolean;ar:boolean;partName:string;brand:string;onPartNameChange:(value:string)=>void;onBrandChange:(value:string)=>void;onSubmitted:()=>void}) {
   const {t}=useLocale();const french=language==='fr';const r=(value:string)=>french?requestFrench[value]||value:value;
-  const [step,setStep]=useState(0);const wizardRef=useRef<HTMLDivElement>(null);
+  const submitting=useRef(false);const [step,setStep]=useState(0);const wizardRef=useRef<HTMLDivElement>(null);
   const [settings,setSettings]=useState<FormSettings|null>(null);const [loadError,setLoadError]=useState(false);
   const [orderType,setOrderType]=useState('');const [status,setStatus]=useState('');const [failed,setFailed]=useState(false);const [sending,setSending]=useState(false);
   const [photo,setPhoto]=useState<string|null>(null);const imageRef=useRef<HTMLInputElement>(null);const phoneRef=useRef<HTMLInputElement>(null);
@@ -16,21 +18,22 @@ export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChang
   useEffect(()=>{void load()},[]);useEffect(()=>()=>{if(photo)URL.revokeObjectURL(photo)},[photo]);
   function error(message:string){setStatus(message);setFailed(true);}
   async function submit(event:React.FormEvent<HTMLFormElement>){
-    event.preventDefault();if(!settings)return;const form=event.currentTarget;const data=new FormData(form);if(storeSlug)data.set('storeSlug',storeSlug);if(guided)data.set('source','chatbot');
+    event.preventDefault();if(!settings||submitting.current)return;const form=event.currentTarget;const data=new FormData(form);if(storeSlug)data.set('storeSlug',storeSlug);if(inventoryId)data.set('inventoryId',String(inventoryId));if(guided)data.set('source','chatbot');
     const rawPhone=String(data.get('phone')||'').trim();
     if(rawPhone){const phone=normalizeAlgerianWhatsApp(rawPhone);if(!phone){const message=ar?'أدخل رقم واتساب جزائري صحيحاً، مثل 555123456.':r("Enter a valid Algerian WhatsApp number, e.g. 555123456.");phoneRef.current?.setCustomValidity(message);phoneRef.current?.reportValidity();return;}data.set('phone',phone);}
     if(![...data.entries()].filter(([key])=>key!=='source'&&key!=='storeSlug').map(([,value])=>value).some(value=>value instanceof File?value.size>0:value.trim())){error(ar?'يرجى إدخال معلومة واحدة على الأقل.':r("Please provide at least one detail."));return;}
-    setSending(true);setStatus('');setFailed(false);
-    try{const response=await fetch('/api/leads',{method:'POST',body:data});if(!response.ok){await load();throw Error();}const result=await response.json() as {id:number};setStatus(ar?`تم استلام طلبك رقم ${result.id}. سنتواصل معك قريباً.`:french?`Demande n° ${result.id} reçue. Nous vous contacterons bientôt.`:`Request #${result.id} received. We will contact you soon.`);form.reset();setPhoto(null);setOrderType('');setStep(0);onSubmitted();}
-    catch{error(ar?'تعذر إرسال الطلب. تحقق من الحقول المطلوبة وحاول مجدداً.':r("Could not send your request. Check the required fields and try again."));}finally{setSending(false);}
+    submitting.current=true;setSending(true);setStatus('');setFailed(false);
+    try{const response=await fetch('/api/leads',{method:'POST',body:data});if(!response.ok){await load();throw Error();}const result=await response.json() as {id:number;tracking?:OrderTracking};trackToyotaOrder(storeSlug,result.tracking);setStatus(ar?`تم استلام طلبك رقم ${result.id}. سنتواصل معك قريباً.`:french?`Demande n° ${result.id} reçue. Nous vous contacterons bientôt.`:`Request #${result.id} received. We will contact you soon.`);form.reset();setPhoto(null);setOrderType('');setStep(0);onSubmitted();}
+    catch{error(ar?'تعذر إرسال الطلب. تحقق من الحقول المطلوبة وحاول مجدداً.':r("Could not send your request. Check the required fields and try again."));}finally{submitting.current=false;setSending(false);}
   }
   if(!settings)return <div className="form-card"><p role="status">{loadError?(ar?'تعذر تحميل النموذج.':r("Could not load the form.")):(ar?'جارٍ تحميل النموذج…':r("Loading request form…"))}</p>{loadError&&<button className="secondary-button" onClick={load}>{ar?'حاول مجدداً':r("Try again")}</button>}</div>;
-  function label(key:FieldKey){const field=requestFields.find(field=>field.key===key)!;return (ar?field.ar:french?t(field.ar):field.en)+(settings!.fields[key].required?' *':ar?' (اختياري)':r(" (optional)"));}
-  const visibleFields=requestFields.filter(({key})=>settings.fields[key].visible&&(key!=='quantity'||orderType==='wholesale'||!settings.fields.orderType.visible));
+  function requiredField(key:FieldKey){return key==='quantity'&&orderType==='wholesale'||settings!.fields[key].required;}
+  function label(key:FieldKey){const field=requestFields.find(field=>field.key===key)!;return (ar?field.ar:french?t(field.ar):field.en)+(requiredField(key)?' *':ar?' (اختياري)':r(" (optional)"));}
+  const visibleFields=requestFields.filter(({key})=>(settings.fields[key].visible||key==='quantity'&&orderType==='wholesale')&&(key!=='quantity'||orderType==='wholesale'||!settings.fields.orderType.visible));
   const currentStep=Math.min(step,visibleFields.length-1);
   function next(){const controls=wizardRef.current?.querySelectorAll<HTMLInputElement>('[data-active="true"] input,[data-active="true"] select,[data-active="true"] textarea');for(const control of controls||[]){if(!control.reportValidity())return;}if(visibleFields[currentStep]?.key==='phone'&&phoneRef.current?.value&&!normalizeAlgerianWhatsApp(phoneRef.current.value)){phoneRef.current.setCustomValidity('أدخل رقم واتساب جزائري صحيحاً، مثل 555123456.');phoneRef.current.reportValidity();return;}setStep(currentStep+1);}
   return <form className="form-card" onKeyDown={event=>{if(guided&&event.key==='Enter'&&currentStep<visibleFields.length-1&&event.target instanceof HTMLInputElement){event.preventDefault();next();}}} onSubmit={event=>{if(guided&&currentStep<visibleFields.length-1){event.preventDefault();return;}void submit(event);}}><div className="form-grid" ref={wizardRef}>{guided&&<p className="span2">الخطوة {currentStep+1} من {visibleFields.length} — يمكنك الرجوع لتعديل إجاباتك.</p>}{visibleFields.map(({key},index)=>{
-    const required=settings.fields[key].required;
+    const required=requiredField(key);
     const wide=['vinFrame','image','note'].includes(key);
     let input;
     switch(key){
@@ -42,7 +45,7 @@ export function PartRequestForm({ar,partName,brand,onPartNameChange,onBrandChang
       case 'model':input=<Input name={key} required={required} maxLength={100} placeholder={ar?'أدخل الموديل (مثال: Corolla)':r("Enter car model (e.g. Corolla)")}/>;break;
       case 'year':input=<Input name={key} required={required} type="number" min="1950" max={new Date().getFullYear()+1} placeholder={ar?'مثال: 2020':r("e.g. 2020")}/>;break;
       case 'orderType':input=<select name={key} required={required} value={orderType} onChange={event=>setOrderType(event.target.value)}><option value="" disabled={required}>{ar?'اختر نوع الطلب':r("Choose order type")}</option><option value="single">{ar?'قطعة واحدة':r("One piece")}</option><option value="wholesale">{ar?'جملة':r("Wholesale")}</option></select>;break;
-      case 'quantity':input=<Input name={key} required={required} type="number" min="1" step="1" placeholder={ar?'مثال: 10 قطع':r("e.g. 10 pieces")}/>;break;
+      case 'quantity':input=<Input name={key} required={required} type="number" min="1" max="2147483647" step="1" inputMode="numeric" placeholder={ar?'مثال: 10 قطع':r("e.g. 10 pieces")}/>;break;
       case 'vinFrame':input=<Input name={key} required={required} maxLength={50} pattern="[A-Za-z0-9 -]+" dir="ltr" placeholder={ar?'أدخل VIN أو رقم الهيكل (مثال: KUN26-123456)':r("Enter VIN or frame (e.g. KUN26-123456)")}/>;break;
       case 'image':input=<><Input ref={imageRef} name={key} required={required} type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const file=event.target.files?.[0];if(file&&(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type))){event.target.value='';setPhoto(null);error(ar?'اختر صورة JPG أو PNG أو WebP بحجم لا يتجاوز 5 ميغابايت.':r("Choose a JPG, PNG or WebP image up to 5 MB."));return;}setStatus('');setPhoto(file?URL.createObjectURL(file):null);}}/><span className="muted field-hint">{ar?'JPG أو PNG أو WebP، حتى 5 ميغابايت. تظهر الصورة للإدارة فقط.':r("JPG, PNG or WebP · up to 5 MB. Visible only to the admin.")}</span></>;break;
       case 'note':input=<Textarea name={key} required={required} maxLength={1000} placeholder={ar?'أضف تفاصيل عن القطعة أو السيارة':r("Add details about the part or your car")}/>;break;

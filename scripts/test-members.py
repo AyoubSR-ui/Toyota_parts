@@ -296,6 +296,32 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   with lock:
    hashes=[row[0] for row in conn.execute('SELECT password_hash FROM members')]
   assert len(set(hashes))==3 and all('Local-test' not in value for value in hashes)
+  # Conversion totals come from the selected store's public catalog, never client values.
+  with lock:
+   toyota_id=conn.execute("SELECT id FROM members WHERE store_slug='toyota-parts'").fetchone()[0]
+   toyota_item=conn.execute("SELECT id FROM inventory WHERE legacy_product_id=1").fetchone()[0]
+   conn.execute('UPDATE members SET is_published=1,show_prices=1 WHERE id=?',(toyota_id,));conn.commit()
+  order={'storeSlug':'toyota-parts','inventoryId':str(toyota_item),'name':'Local conversion fixture','phone':'0555123456','brand':'Toyota','partName':'قطعة تويوتا الأصلية','reference':'LEGACY-TOYOTA','model':'Corolla','year':2020,'orderType':'single','value':1}
+  response=call('/api/leads','POST',order);assert response[0]==201,response[:2]
+  event=response[1]['tracking'];assert event['event']=='Purchase' and event['data']['value']==7300 and event['data']['currency']=='DZD'
+  assert event['eventId']=='toyota-parts-order-'+str(response[1]['id']) and event['data']['contents'][0]['quantity']==1
+  assert 'phone' not in json.dumps(event) and 'Local conversion' not in json.dumps(event) and 'buy_price' not in json.dumps(event)
+  wholesale=call('/api/leads','POST',{**order,'orderType':'wholesale','quantity':3})[1]['tracking'];assert wholesale['data']['value']==21900 and wholesale['data']['num_items']==3
+  missing_qty=call('/api/leads','POST',{**order,'orderType':'wholesale'});assert missing_qty[0]==400 and 'tracking' not in missing_qty[1]
+  for qty in (0,-1,'1.5',2147483648):assert call('/api/leads','POST',{**order,'orderType':'wholesale','quantity':qty})[0]==400
+  qty_settings=call('/api/form-settings?store=toyota-parts')[1];qty_settings['fields']['quantity']={'visible':False,'required':False}
+  with lock:conn.execute('INSERT OR REPLACE INTO form_settings(id,value) VALUES(?,?)',('member:'+str(toyota_id),json.dumps(qty_settings)));conn.commit()
+  assert call('/api/leads','POST',{**order,'orderType':'wholesale'})[0]==400
+  assert call('/api/leads','POST',{**order,'orderType':'wholesale','quantity':4})[1]['tracking']['data']['value']==29200
+  custom=call('/api/leads','POST',{**order,'inventoryId':'','partName':'Unknown custom item','reference':'UNKNOWN'})[1]['tracking'];assert custom['event']=='Lead'
+  wrong_selection=call('/api/leads','POST',{**order,'inventoryId':str(item_id)})[1]['tracking'];assert wrong_selection['event']=='Lead'
+  changed=call('/api/leads','POST',{**order,'partName':'Different product'})[1]['tracking'];assert changed['event']=='Lead'
+  with lock:conn.execute('UPDATE inventory SET show_price=0 WHERE id=?',(toyota_item,));conn.commit()
+  hidden=call('/api/leads','POST',order)[1]['tracking'];assert hidden['event']=='Lead' and '7300' not in json.dumps(hidden)
+  with lock:conn.execute('UPDATE inventory SET show_price=1 WHERE id=?',(toyota_item,));conn.commit()
+  invalid=call('/api/leads','POST',{**order,'phone':'invalid'});assert invalid[0]==400 and 'tracking' not in invalid[1]
+  assert 'tracking' not in call('/api/leads','POST',{**lead,'note':'local fixture'})[1]
+  print('PASS: saved-order Purchase, server catalog totals and quantity, hidden-price privacy, unknown orders as Lead, failure/tenant isolation and no personal data in analytics')
   # Large catalogs remain fully accessible; multi-brand filters match whole names only.
   with lock:
    for n in range(105):

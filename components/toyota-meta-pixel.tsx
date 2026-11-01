@@ -11,8 +11,9 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
+fbq('set', 'autoConfig', false, '3676036822560836');
 fbq('init', '3676036822560836');
-fbq('track', 'PageView');
+fbq('trackSingle', '3676036822560836', 'PageView');
 `}</Script>
   <noscript dangerouslySetInnerHTML={{__html:'<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=3676036822560836&amp;ev=PageView&amp;noscript=1" />'}}/>
  </>;

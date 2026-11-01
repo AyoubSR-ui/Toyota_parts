@@ -1,3 +1,4 @@
+import { resolveToyotaCatalogOrder,toyotaOrderTracking } from '@/lib/toyota-order-tracking';
 import { database, images } from '@/lib/storage';
 import { findStore } from '@/lib/stores';
 import { isAdmin } from '@/lib/admin-auth';
@@ -22,22 +23,25 @@ export async function POST(request:Request) {
   if(!raw||typeof raw!=='object')return NextResponse.json({error:'Invalid request'},{status:400});
   let settings;let store;
   try{if(raw.storeSlug){if(typeof raw.storeSlug!=='string'||!(store=await findStore(raw.storeSlug)))return NextResponse.json({error:'المتجر غير موجود'},{status:404});}else store=await findStore('toyota-parts');settings=await readFormSettings(store?.id);}catch{return NextResponse.json({error:'Form unavailable. Please retry.'},{status:503});}
+  const wholesale=settings.fields.orderType.visible&&typeof raw.orderType==='string'&&raw.orderType.trim()==='wholesale';
   const d:Partial<Record<FieldKey,string>>={};
-  for(const {key} of requestFields){if(key==='image'||!settings.fields[key].visible)continue;const value=raw[key];if(value!==undefined&&typeof value!=='string'&&typeof value!=='number')return NextResponse.json({error:'Invalid field value'},{status:400});d[key]=value===undefined?'':String(value).trim();}
+  for(const {key} of requestFields){if(key==='image'||(!settings.fields[key].visible&&!(key==='quantity'&&wholesale)))continue;const value=raw[key];if(value!==undefined&&typeof value!=='string'&&typeof value!=='number')return NextResponse.json({error:'Invalid field value'},{status:400});d[key]=value===undefined?'':String(value).trim();}
   if(!settings.fields.image.visible)image=null;
-  const quantityApplies=settings.fields.quantity.visible&&(!settings.fields.orderType.visible||d.orderType==='wholesale');
+  const quantityApplies=wholesale||settings.fields.quantity.visible&&!settings.fields.orderType.visible;
   if(!quantityApplies)delete d.quantity;
-  for(const field of requestFields){if(!settings.fields[field.key].visible||!settings.fields[field.key].required||(field.key==='quantity'&&!quantityApplies))continue;if(field.key==='image'?!image:!d[field.key])return NextResponse.json({error:`Required field: ${field.en} / حقل مطلوب: ${field.ar}`},{status:400});}
+  for(const field of requestFields){if((!settings.fields[field.key].visible&&!(field.key==='quantity'&&wholesale))||(!settings.fields[field.key].required&&!(field.key==='quantity'&&wholesale))||(field.key==='quantity'&&!quantityApplies))continue;if(field.key==='image'?!image:!d[field.key])return NextResponse.json({error:`Required field: ${field.en} / حقل مطلوب: ${field.ar}`},{status:400});}
   if(!image&&!Object.values(d).some(Boolean))return NextResponse.json({error:'Please provide at least one detail / يرجى إدخال معلومة واحدة على الأقل'},{status:400});
   const phone=d.phone?normalizeAlgerianWhatsApp(d.phone):null;
   const limits:Partial<Record<FieldKey,number>>={name:100,partName:150,reference:100,model:100,vinFrame:50,note:1000};
   const invalid=requestFields.some(({key})=>limits[key]&&d[key]&&d[key]!.length>limits[key]!);
-  if(invalid||(d.phone&&!phone)||(d.brand&&!(store?JSON.parse(store.brands):['Toyota','Nissan']).includes(d.brand))||(d.year&&(!Number.isInteger(Number(d.year))||Number(d.year)<1950||Number(d.year)>new Date().getFullYear()+1))||(d.orderType&&!['single','wholesale'].includes(d.orderType))||(d.vinFrame&&!/^[A-Za-z0-9 -]{1,50}$/.test(d.vinFrame))||(d.quantity&&(!Number.isInteger(Number(d.quantity))||Number(d.quantity)<1)))return NextResponse.json({error:'Please check the required fields / يرجى التحقق من البيانات'},{status:400});
+  if(invalid||(d.phone&&!phone)||(d.brand&&!(store?JSON.parse(store.brands):['Toyota','Nissan']).includes(d.brand))||(d.year&&(!Number.isInteger(Number(d.year))||Number(d.year)<1950||Number(d.year)>new Date().getFullYear()+1))||(d.orderType&&!['single','wholesale'].includes(d.orderType))||(d.vinFrame&&!/^[A-Za-z0-9 -]{1,50}$/.test(d.vinFrame))||(d.quantity&&(!Number.isSafeInteger(Number(d.quantity))||Number(d.quantity)<1||Number(d.quantity)>2147483647)))return NextResponse.json({error:'Please check the required fields / يرجى التحقق من البيانات'},{status:400});
   if(image&&!(await validImage(image)))return NextResponse.json({error:'Choose a JPG, PNG, or WebP image up to 5 MB'},{status:400});
   let imageKey:string|null=null;
   try{
     if(image){imageKey=`requests/${crypto.randomUUID()}.${imageTypes[image.type]}`;await images().put(imageKey,image.stream(),{httpMetadata:{contentType:image.type}});}
-    const result=await database().prepare('INSERT INTO leads (name,phone,brand,part_name,reference,model,year,note,order_type,quantity,vin_frame,image_key,source,owner_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(d.name||null,phone,d.brand||null,d.partName||null,d.reference||null,d.model||null,d.year?Number(d.year):null,d.note||null,d.orderType||null,d.quantity?Number(d.quantity):null,d.vinFrame?.toUpperCase()||null,imageKey,raw.source==='chatbot'?'chatbot':'form',store?.id||null,new Date().toISOString()).run();
-    return NextResponse.json({id:result.meta.last_row_id},{status:201});
+    const result=await database().prepare('INSERT INTO leads (name,phone,brand,part_name,reference,model,year,note,order_type,quantity,vin_frame,image_key,source,owner_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(d.name||null,phone,d.brand||null,d.partName||null,d.reference||null,d.model||null,d.year?Number(d.year):null,d.note||null,d.orderType||null,d.quantity?Number(d.quantity):d.orderType==='single'?1:null,d.vinFrame?.toUpperCase()||null,imageKey,raw.source==='chatbot'?'chatbot':'form',store?.id||null,new Date().toISOString()).run();
+    const id=result.meta.last_row_id;let tracking;
+    if(store?.store_slug==='toyota-parts'&&typeof id==='number'){let order=null;try{order=await resolveToyotaCatalogOrder(database(),store,d,raw.inventoryId);}catch{/* The saved order remains valid if optional analytics lookup fails. */}tracking=toyotaOrderTracking(id,order);}
+    return NextResponse.json({id,...(tracking?{tracking}:{})},{status:201});
   }catch{if(imageKey)await images().delete(imageKey).catch(()=>{});return NextResponse.json({error:'Request could not be saved. Please retry.'},{status:503});}
 }
