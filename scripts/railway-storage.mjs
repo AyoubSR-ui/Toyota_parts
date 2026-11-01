@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { importInventory } from './import-inventory.mjs';
 import { enrichInventory,enrichReferenceImages } from './enrich-inventory.mjs';
+import { importVerifiedPhotos } from './import-verified-photos.mjs';
 
 // The Worker talks to this loopback-only bridge. Database credentials stay in Node.
 export async function startStorage(connectionString, token, port = 8788) {
@@ -40,6 +41,7 @@ export async function startStorage(connectionString, token, port = 8788) {
   await importInventory(pool);
   const enrichment=await enrichInventory(pool);
   void enrichReferenceImages(pool,enrichment).catch(()=>console.error('Reference photo search interrupted'));
+  void importVerifiedPhotos(pool).catch(()=>console.error('Verified photo import interrupted'));
   console.log('PostgreSQL ready: products, leads, product_images, request_images.');
   const expected = Buffer.from(`Bearer ${token}`);
   const server = http.createServer(async (request, response) => {
