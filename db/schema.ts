@@ -35,6 +35,8 @@ export const leads = sqliteTable('leads', {
   imageKey: text('image_key'),
   source: text('source').default('form'),
   ownerId: integer('owner_id').references(()=>members.id),
+  orderStatus: text('order_status').notNull().default('new'),
+  archivedAt: text('archived_at'),
   createdAt: text('created_at').notNull().default(''),
 });
 

@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS leads (
   image_key text,
   source text DEFAULT 'form',
   owner_id integer REFERENCES members(id),
+  order_status text NOT NULL DEFAULT 'new',
+  archived_at text,
   created_at text DEFAULT '' NOT NULL
 );
 

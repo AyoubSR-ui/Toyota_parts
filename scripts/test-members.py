@@ -214,6 +214,30 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert call('/api/leads','POST',{**lead,'note':'For Alice only'})[0]==201
   assert call('/api/store-requests',cookie=alice)[1][0]['name']=='Client A'
   assert call('/api/store-requests',cookie=bob)[1]==[]
+  request_id=call('/api/store-requests',cookie=alice)[1][0]['id']
+  assert call('/api/store-requests',cookie=alice)[1][0]['order_status']=='new'
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'status':'confirmed'})[0]==401
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'status':'confirmed'},bob)[0]==404
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'status':'confirmed'},admin)[0]==401
+  blocked=call(f'/api/store-requests/{request_id}','PATCH',{'status':'confirmed'},alice,'https://untrusted.test');assert blocked[0]==403,blocked
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'status':'invalid'},alice)[0]==400
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'archived':'true'},alice)[0]==400
+  assert call(f'/api/store-requests/{request_id}','PATCH',{},alice)[0]==400
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'owner_id':2},alice)[0]==400
+  for status in ['confirmed','preparing','shipped','delivered','cancelled','returned']:
+   assert call(f'/api/store-requests/{request_id}','PATCH',{'status':status},alice)[0]==200
+   assert call('/api/store-requests?status='+status,cookie=alice)[1][0]['id']==request_id
+  assert call('/api/store-requests?status=new',cookie=alice)[1]==[]
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'archived':True},alice)[0]==200
+  assert call('/api/store-requests',cookie=alice)[1]==[]
+  archived=call('/api/store-requests?view=archived',cookie=alice)[1][0]
+  assert archived['id']==request_id and archived['archived_at'] and archived['order_status']=='returned' and archived['name']=='Client A'
+  assert call('/api/store-requests?view=archived',cookie=bob)[1]==[]
+  assert call(f'/api/store-requests/{request_id}','PATCH',{'archived':False},alice)[0]==200
+  restored=call('/api/store-requests',cookie=alice)[1][0];assert restored['id']==request_id and restored['archived_at'] is None and restored['order_status']=='returned'
+  assert call('/api/store-requests?view=archived',cookie=alice)[1]==[]
+  assert call('/api/store-requests?status=invalid',cookie=alice)[0]==400
+  print('PASS: all order statuses, archive/restore, filtering, request preservation, member isolation and CSRF')
   assert call('/api/store-requests',cookie=admin)[0]==401
   assert call('/api/leads',cookie=admin)[1]==[]
   formB=call('/api/form-settings?store='+bob_slug)[1]
