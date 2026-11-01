@@ -96,11 +96,21 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
   assert toyota['store_slug']=='toyota-parts' and toyota['account_type']=='member'
   assert call('/api/inventory',cookie=toyota_cookie)[1][0]['reference']=='LEGACY-TOYOTA'
   assert call('/api/stores/toyota-parts')[1]['products'][0]['price']=='7300'
+  legacy_id=call('/api/stores/toyota-parts')[1]['products'][0]['id']
+  focused=call('/api/stores/toyota-parts?product='+str(legacy_id))[1]
+  assert focused['total']==1 and focused['products'][0]['id']==legacy_id
+  assert 'buy_price' not in focused['products'][0] and 'owner_id' not in focused['products'][0]
+  assert call('/api/stores/toyota-parts?product=99999999')[1]['products']==[]
+  for invalid in ['0','-1','abc','1%20OR%201=1','9007199254740992']:
+   assert call('/api/stores/toyota-parts?product='+invalid)[0]==400
+  print('PASS: direct product links select one public item, preserve privacy and reject invalid IDs',flush=True)
   alice=register('alice@example.test');bob=register('bob@example.test')
   assert call('/api/inventory')[0]==401
   status,profile,_=call('/api/account',cookie=alice);assert status==200 and profile['phone']=='+213555123456'
   alice_slug=profile['store_slug']
   bob_profile=call('/api/account',cookie=bob)[1];bob_slug=bob_profile['store_slug']
+  assert call('/api/stores/'+alice_slug+'?product='+str(legacy_id))[1]['products']==[]
+  print('PASS: direct product links cannot expose another store inventory',flush=True)
   assert call('/api/search')[0]==400
   assert call('/api/account','PUT',{'display_name':'X','phone':'0555123456','brands':['Toyota'],'store_slug':bob_slug},alice)[0]==409
   assert call('/api/account','PUT',{'display_name':'X','phone':'0555123456','brands':['Toyota'],'store_slug':'toyota-parts'},alice)[0]==400
