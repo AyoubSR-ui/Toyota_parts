@@ -223,6 +223,15 @@ with tempfile.TemporaryDirectory(prefix='toyota-members-') as tmp:
    except urllib.error.HTTPError as e:e.read();return e.code
   assert page_status('/stores/'+bob_slug+'/admin',alice)==404
   assert page_status('/stores/'+alice_slug+'/admin',alice)==200
+  def public_html(path):
+   return opener.open(origin+path,timeout=25).read().decode()
+  toyota_html=public_html('/stores/toyota-parts')
+  assert '3676036822560836' in toyota_html and '<noscript>' in toyota_html
+  assert 'connect.facebook.net/en_US/fbevents.js' in toyota_html
+  assert '3676036822560836' not in public_html('/stores/'+alice_slug)
+  assert '3676036822560836' not in public_html('/')
+  assert '3676036822560836' not in public_html('/account')
+  print('PASS: Toyota Meta Pixel and noscript fallback stay scoped to the public Toyota store')
   qr=opener.open(urllib.request.Request(origin+'/api/account/qr?download=1',headers={'Cookie':alice}),timeout=25)
   assert qr.status==200 and qr.read().startswith(b'\x89PNG') and 'attachment' in qr.headers['Content-Disposition']
   assert page_status('/api/account/qr','')==401

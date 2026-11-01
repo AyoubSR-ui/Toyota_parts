@@ -19,7 +19,7 @@ export const legalContent={
       },
       {
         "title": "Cookies and local storage",
-        "text": "The application uses session cookies for sign-in and browser local storage to remember language preferences. Blocking cookies may prevent account access. Hosting providers may also use technical mechanisms needed to deliver and protect the service."
+        "text": "The application uses session cookies for sign-in and browser local storage to remember language preferences. Blocking cookies may prevent account access. Hosting providers may also use technical mechanisms needed to deliver and protect the service. The public Toyota Parts storefront also uses Meta Pixel to measure page visits and advertising performance. This tool may use cookies and share page-visit and browser information with Meta. This integration is limited to that public storefront."
       },
       {
         "title": "Retention, security and your choices",
@@ -49,7 +49,7 @@ export const legalContent={
       },
       {
         "title": "ملفات الارتباط والتخزين المحلي",
-        "text": "يستخدم التطبيق ملفات جلسة لتسجيل الدخول وتخزين المتصفح المحلي لحفظ اللغة. قد يمنع حظر ملفات الارتباط الوصول إلى الحساب. وقد يستخدم مزودو الاستضافة آليات تقنية لتقديم الخدمة وحمايتها."
+        "text": "يستخدم التطبيق ملفات جلسة لتسجيل الدخول وتخزين المتصفح المحلي لحفظ اللغة. قد يمنع حظر ملفات الارتباط الوصول إلى الحساب. وقد يستخدم مزودو الاستضافة آليات تقنية لتقديم الخدمة وحمايتها. تستخدم واجهة متجر Toyota Parts العامة أيضاً أداة Meta Pixel لقياس زيارات الصفحات وأداء الإعلانات. قد تستخدم هذه الأداة ملفات تعريف الارتباط وتشارك معلومات زيارة الصفحة والمتصفح مع Meta. يقتصر هذا التكامل على واجهة ذلك المتجر العامة."
       },
       {
         "title": "الاحتفاظ والأمان وخياراتك",
@@ -79,7 +79,7 @@ export const legalContent={
       },
       {
         "title": "Cookies et stockage local",
-        "text": "L’application utilise des cookies de session pour la connexion et le stockage local du navigateur pour la langue. Le blocage des cookies peut empêcher l’accès au compte. Les hébergeurs peuvent utiliser des mécanismes techniques nécessaires à la fourniture et à la protection du service."
+        "text": "L’application utilise des cookies de session pour la connexion et le stockage local du navigateur pour la langue. Le blocage des cookies peut empêcher l’accès au compte. Les hébergeurs peuvent utiliser des mécanismes techniques nécessaires à la fourniture et à la protection du service. La vitrine publique Toyota Parts utilise également Meta Pixel pour mesurer les visites et les performances publicitaires. Cet outil peut utiliser des cookies et transmettre à Meta des informations sur les visites et le navigateur. Cette intégration est limitée à cette vitrine publique."
       },
       {
         "title": "Conservation, sécurité et choix",
