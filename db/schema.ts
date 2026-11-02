@@ -29,6 +29,7 @@ export const leads = sqliteTable('leads', {
   model: text('model'),
   year: integer('year'),
   note: text('note'),
+  adminNote: text('admin_note'),
   orderType: text('order_type', { enum: ['single', 'wholesale'] }),
   quantity: integer('quantity'),
   vinFrame: text('vin_frame'),

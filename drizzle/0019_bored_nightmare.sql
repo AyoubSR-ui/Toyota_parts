@@ -1,0 +1,1 @@
+ALTER TABLE `leads` ADD `admin_note` text;

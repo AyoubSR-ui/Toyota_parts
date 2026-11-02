@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS leads (
   model text,
   year integer,
   note text,
+  admin_note text,
   order_type text,
   quantity integer,
   vin_frame text,
