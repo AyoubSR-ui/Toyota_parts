@@ -71,12 +71,18 @@ export function createTelegramOrders(pool,{secret,fetchImpl=fetch,intervalMs=100
    const chat=await api(token,'getChat',{chat_id:chatId});
    if(!['private','group','supergroup'].includes(chat?.type))return {status:400,body:{error:'PRIVATE_CHAT_OR_GROUP_REQUIRED'}};
    await api(token,'sendMessage',{chat_id:chatId,text:'تم ربط إشعارات Toyota Parts بنجاح. ستصلك الطلبات الجديدة مع تفاصيلها وصورة العميل إن وُجدت.',link_preview_options:{is_disabled:true}});
-   // Saving a connection is a cutover: never replay historical orders to a new destination.
+   // A new destination is a cutover; refreshing the same bot/chat preserves pending deliveries.
    const client=await pool.connect();
    try{
     await client.query('BEGIN');await client.query('SELECT pg_advisory_xact_lock($1,$2)',[76321,ownerId]);
     const latest=await client.query('SELECT COALESCE(MAX(id),0) AS id FROM leads WHERE owner_id=$1',[ownerId]);
-    await client.query('INSERT INTO store_telegram_settings(owner_id,token_encrypted,chat_id,bot_username,connection_id,start_after_id,enabled,updated_at) VALUES($1,$2,$3,$4,$5,$6,1,$7) ON CONFLICT(owner_id) DO UPDATE SET token_encrypted=EXCLUDED.token_encrypted,chat_id=EXCLUDED.chat_id,bot_username=EXCLUDED.bot_username,connection_id=EXCLUDED.connection_id,start_after_id=EXCLUDED.start_after_id,enabled=1,last_error=NULL,last_sent_at=NULL,updated_at=EXCLUDED.updated_at',[ownerId,sealToken(token,secret,ownerId),chatId,bot.username,randomUUID(),latest.rows[0].id,new Date().toISOString()]);
+    const previous=(await client.query('SELECT * FROM store_telegram_settings WHERE owner_id=$1',[ownerId])).rows[0];
+    let sameConnection=false;
+    if(previous?.chat_id===chatId){try{sameConnection=openToken(previous.token_encrypted,secret,ownerId).split(':')[0]===token.split(':')[0];}catch{/* A changed encryption key requires a fresh connection. */}}
+    const connectionId=sameConnection?previous.connection_id:randomUUID();
+    const startAfterId=sameConnection?previous.start_after_id:latest.rows[0].id;
+    await client.query('INSERT INTO store_telegram_settings(owner_id,token_encrypted,chat_id,bot_username,connection_id,start_after_id,enabled,updated_at) VALUES($1,$2,$3,$4,$5,$6,1,$7) ON CONFLICT(owner_id) DO UPDATE SET token_encrypted=EXCLUDED.token_encrypted,chat_id=EXCLUDED.chat_id,bot_username=EXCLUDED.bot_username,connection_id=EXCLUDED.connection_id,start_after_id=EXCLUDED.start_after_id,enabled=1,last_error=NULL,last_sent_at=CASE WHEN store_telegram_settings.connection_id=EXCLUDED.connection_id THEN store_telegram_settings.last_sent_at ELSE NULL END,updated_at=EXCLUDED.updated_at',[ownerId,sealToken(token,secret,ownerId),chatId,bot.username,connectionId,startAfterId,new Date().toISOString()]);
+    if(sameConnection)await client.query('UPDATE telegram_order_deliveries SET next_attempt_at=NOW() WHERE owner_id=$1 AND connection_id=$2 AND sent_at IS NULL',[ownerId,connectionId]);
     await client.query('COMMIT');
    }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
    return {status:200,body:await read(ownerId)};

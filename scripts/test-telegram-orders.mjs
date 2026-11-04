@@ -83,6 +83,12 @@ assert.equal(Buffer.from(await fileCall.data.get('document').arrayBuffer()).toSt
 assert((await query('SELECT sent_at FROM telegram_order_deliveries WHERE lead_id=$1',[photo.id])).rows[0].sent_at);
 await query("UPDATE leads SET order_status='confirmed',admin_note='Private admin follow-up' WHERE id=$1",[a.id]);
 const beforeEdit=calls.length;await service.tick();assert.equal(calls.length,beforeEdit); // Editing isn't a new order.
+// Reconnecting the same bot/chat preserves and resumes existing pending deliveries.
+const reconnectRetry=await lead();failMessage=true;await service.tick();
+const oldConnection=(await query('SELECT connection_id FROM store_telegram_settings')).rows[0].connection_id;
+await service.handle({ownerId,action:'connect',botToken:token,chatId:'-1001234567890'});
+assert.equal((await query('SELECT connection_id FROM store_telegram_settings')).rows[0].connection_id,oldConnection);
+await service.tick();assert((await query('SELECT sent_at FROM telegram_order_deliveries WHERE lead_id=$1',[reconnectRetry.id])).rows[0].sent_at);
 // A different destination starts with future orders, never pending or past customers.
 await lead();
 await service.handle({ownerId,action:'connect',botToken:token,chatId:'-1009999999999'});
