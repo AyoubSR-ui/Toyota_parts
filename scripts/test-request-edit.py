@@ -75,6 +75,18 @@ with tempfile.TemporaryDirectory(prefix='toyota-request-edit-') as tmp:
    sig=base64.urlsafe_b64encode(hmac.new(b'local-test-signing-secret',('member:'+value).encode(),hashlib.sha256).digest()).decode().rstrip('=')
    return member_id,'toyota_member_session='+value+'.'+sig
   alice_id,alice=member('edit-alice');bob_id,bob=member('edit-bob')
+  assert call('/api/store-telegram')[0]==401
+  assert call('/api/store-telegram',cookie=alice)[0]==404
+  assert call('/api/store-telegram','POST',{'action':'connect','botToken':'invalid','chatId':'123456'})[0]==401
+  assert call('/api/store-telegram','POST',{'action':'toggle','enabled':True},alice,'https://foreign.test')[0]==403
+  assert call('/api/store-telegram','POST',{'action':'toggle','enabled':True},alice)[0]==404
+  toyota_id=conn.execute("SELECT id FROM members WHERE store_slug='toyota-parts'").fetchone()[0]
+  value=base64.urlsafe_b64encode(json.dumps({'id':toyota_id,'exp':int(time.time()*1000)+600000}).encode()).decode().rstrip('=')
+  sig=base64.urlsafe_b64encode(hmac.new(b'local-test-signing-secret',('member:'+value).encode(),hashlib.sha256).digest()).decode().rstrip('=')
+  toyota_cookie='toyota_member_session='+value+'.'+sig
+  assert call('/api/store-telegram','POST',{'action':'toggle','enabled':True,'ownerId':alice_id},toyota_cookie)[0]==400
+  print('PASS: Telegram settings require Toyota store owner, reject ownership overrides and enforce same-origin writes',flush=True)
+
   c=conn.execute("INSERT INTO leads(owner_id,name,phone,part_name,brand,model,year,note,order_type,quantity,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",(alice_id,'Synthetic customer','+213555123456','Test part','Toyota','Corolla',2014,'Original customer message','single',1,'2026-01-02T12:00:00Z'))
   request_id=c.lastrowid;conn.commit();path=f'/api/store-requests/{request_id}'
   def row():return dict(conn.execute('SELECT * FROM leads WHERE id=?',(request_id,)).fetchone())

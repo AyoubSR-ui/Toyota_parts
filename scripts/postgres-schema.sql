@@ -113,3 +113,18 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS order_status TEXT NOT NULL DEFAULT 'n
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TEXT;
 
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS admin_note TEXT;
+
+-- Telegram credentials are encrypted by the Node storage service, never returned to the browser.
+CREATE TABLE IF NOT EXISTS store_telegram_settings (
+ owner_id INTEGER PRIMARY KEY REFERENCES members(id),
+ token_encrypted TEXT NOT NULL, chat_id TEXT NOT NULL, bot_username TEXT NOT NULL,
+ connection_id TEXT NOT NULL, start_after_id INTEGER NOT NULL,
+ enabled INTEGER NOT NULL DEFAULT 1, last_error TEXT, last_sent_at TEXT, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS telegram_order_deliveries (
+ connection_id TEXT NOT NULL, lead_id INTEGER NOT NULL REFERENCES leads(id),
+ owner_id INTEGER NOT NULL REFERENCES members(id), text_message_id TEXT, attachment_message_id TEXT,
+ attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ sent_at TEXT, last_error TEXT, PRIMARY KEY(connection_id,lead_id)
+);
+CREATE INDEX IF NOT EXISTS telegram_pending_idx ON telegram_order_deliveries(owner_id,connection_id,next_attempt_at) WHERE sent_at IS NULL;

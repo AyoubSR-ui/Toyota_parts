@@ -39,3 +39,11 @@ export function images(): R2Bucket {
     async delete(key: string) { await call(`/objects/${encodeURIComponent(key)}`, { method: 'DELETE' }); },
   } as unknown as R2Bucket;
 }
+
+// Private loopback bridge only. The public route supplies the authenticated owner ID.
+export async function telegramSettings(ownerId:number,input:Record<string,unknown>){
+ if(!config().INTERNAL_STORAGE_URL)return {status:503,body:{error:'TELEGRAM_REQUIRES_POSTGRES'}};
+ const settings=config();
+ const response=await fetch(`${settings.INTERNAL_STORAGE_URL}/telegram`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${settings.INTERNAL_STORAGE_TOKEN}`},body:JSON.stringify({...input,ownerId}),signal:AbortSignal.timeout(45000)});
+ return {status:response.status,body:await response.json()};
+}

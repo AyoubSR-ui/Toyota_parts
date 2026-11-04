@@ -2,6 +2,7 @@ import http from 'node:http';
 import { timingSafeEqual, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
+import { createTelegramOrders } from './telegram-orders.mjs';
 import { importInventory } from './import-inventory.mjs';
 import { enrichInventory,enrichReferenceImages } from './enrich-inventory.mjs';
 import { importVerifiedPhotos } from './import-verified-photos.mjs';
@@ -43,6 +44,8 @@ export async function startStorage(connectionString, token, port = 8788) {
   void enrichReferenceImages(pool,enrichment).catch(()=>console.error('Reference photo search interrupted'));
   void importVerifiedPhotos(pool).catch(()=>console.error('Verified photo import interrupted'));
   console.log('PostgreSQL ready: products, leads, product_images, request_images.');
+  const telegram = createTelegramOrders(pool,{secret:process.env.ADMIN_AUTH_SECRET});
+  telegram.start();
   const expected = Buffer.from(`Bearer ${token}`);
   const server = http.createServer(async (request, response) => {
     const given = Buffer.from(request.headers.authorization || '');
@@ -50,6 +53,11 @@ export async function startStorage(connectionString, token, port = 8788) {
     if (given.length !== expected.length || !timingSafeEqual(given, expected)) return json(401, { error: 'Unauthorized' });
     try {
       const url = new URL(request.url, 'http://localhost');
+      if (url.pathname === '/telegram' && request.method === 'POST') {
+        const input=JSON.parse((await readBody(request,2048)).toString());
+        const result=await telegram.handle(input);
+        return json(result.status,result.body);
+      }
       if (url.pathname === '/query' && request.method === 'POST') {
         const { sql, params = [] } = JSON.parse((await readBody(request, 128 * 1024)).toString());
         // Only application reads/writes are allowed; never accept SQL from a public request.
@@ -91,7 +99,7 @@ export async function startStorage(connectionString, token, port = 8788) {
   });
   server.requestTimeout = 30000;
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
-  return { close: async () => { await new Promise(resolve => server.close(resolve)); await pool.end(); } };
+  return { close: async () => { await telegram.close(); await new Promise(resolve => server.close(resolve)); await pool.end(); } };
 }
 async function readBody(request, max) {
   const chunks = []; let bytes = 0;
