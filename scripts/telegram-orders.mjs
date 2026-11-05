@@ -124,9 +124,9 @@ export function createTelegramOrders(pool,{secret,fetchImpl=fetch,intervalMs=100
     if(!settings){await client.query('COMMIT');continue;}
     await client.query('INSERT INTO telegram_order_deliveries(connection_id,lead_id,owner_id) SELECT $1,l.id,l.owner_id FROM leads l WHERE l.owner_id=$2 AND l.id>$3 AND NOT EXISTS(SELECT 1 FROM telegram_order_deliveries d WHERE d.connection_id=$1 AND d.lead_id=l.id) ORDER BY l.id LIMIT 200 ON CONFLICT DO NOTHING',[settings.connection_id,ownerId,settings.start_after_id]);
     const jobs=await client.query('SELECT * FROM telegram_order_deliveries WHERE owner_id=$1 AND connection_id=$2 AND sent_at IS NULL AND next_attempt_at<=NOW() ORDER BY lead_id LIMIT 1',[ownerId,settings.connection_id]);
-    const job=jobs.rows[0];
+    const job=jobs.rows[0];let deliveredId=null;
     if(job){
-     try{await deliver(client,settings,job);}
+     try{await deliver(client,settings,job);deliveredId=job.lead_id;}
      catch(error){
       const safe=safeTelegramError(error),delay=Math.max(Math.min(3600,30*2**Math.min(job.attempts,7)),Math.min(86400,Number(error.retryAfter)||0));
       await client.query("UPDATE telegram_order_deliveries SET attempts=attempts+1,last_error=$3,next_attempt_at=NOW()+($4 * INTERVAL '1 second') WHERE connection_id=$1 AND lead_id=$2",[settings.connection_id,job.lead_id,safe,delay]);
@@ -135,6 +135,7 @@ export function createTelegramOrders(pool,{secret,fetchImpl=fetch,intervalMs=100
      }
     }
     await client.query('COMMIT');
+    if(deliveredId!==null)logger.info?.('Telegram order notification delivered #'+deliveredId);
    }catch{await client.query('ROLLBACK').catch(()=>{});logger.warn('Telegram notification worker will retry');}finally{client.release();}
   }
  }
