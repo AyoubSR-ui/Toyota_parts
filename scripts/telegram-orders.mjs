@@ -19,7 +19,7 @@ export function orderMessage(lead){
  const value=(input)=>input===null||input===undefined||input===''?'—':String(input);
  const status={new:'جديد',confirmed:'مؤكد',preparing:'قيد التحضير',shipped:'تم الشحن',delivered:'تم التسليم',cancelled:'ملغى',returned:'مرتجع'}[lead.order_status]||'جديد';
  const type=lead.order_type==='wholesale'?'جملة':lead.order_type==='single'?'قطعة واحدة':'غير محدد';
- const text=[`طلب جديد — Toyota Parts #${lead.id}`,'',`الاسم: ${value(lead.name)}`,`واتساب: ${value(lead.phone)}`,`القطعة: ${value(lead.part_name)}`,`المرجع: ${value(lead.reference)}`,`علامة السيارة: ${value(lead.brand)}`,`الموديل: ${value(lead.model)}`,`السنة: ${value(lead.year)}`,`VIN / رقم الهيكل: ${value(lead.vin_frame)}`,`نوع الطلب: ${type}`,`الكمية المطلوبة: ${value(lead.quantity)}`,lead.order_type==='wholesale'?'سعر الجملة: يُحدد خلال مكالمة التأكيد.':null,`الحالة: ${status}`, `المصدر: ${lead.source==='chatbot'?'المساعد الآلي':'نموذج الطلب'}`,`التاريخ: ${value(lead.created_at)}`,'',`ملاحظة العميل:\n${value(lead.note)}`].filter(line=>line!==null).join('\n');
+ const text=[`طلب — Toyota Parts #${lead.id}`,'',`الاسم: ${value(lead.name)}`,`واتساب: ${value(lead.phone)}`,`القطعة: ${value(lead.part_name)}`,`المرجع: ${value(lead.reference)}`,`علامة السيارة: ${value(lead.brand)}`,`الموديل: ${value(lead.model)}`,`السنة: ${value(lead.year)}`,`VIN / رقم الهيكل: ${value(lead.vin_frame)}`,`نوع الطلب: ${type}`,`الكمية المطلوبة: ${value(lead.quantity)}`,lead.order_type==='wholesale'?'سعر الجملة: يُحدد خلال مكالمة التأكيد.':null,`الحالة: ${status}`,`الأرشيف: ${lead.archived_at?'مؤرشف':'طلب نشط'}`, `المصدر: ${lead.source==='chatbot'?'المساعد الآلي':'نموذج الطلب'}`,`التاريخ: ${value(lead.created_at)}`,'',`ملاحظة العميل:\n${value(lead.note)}`].filter(line=>line!==null).join('\n');
  const keyboard=[[{text:'فتح الطلبات',url:dashboard}]];
  if(/^\+213[567]\d{8}$/.test(lead.phone||''))keyboard.push([{text:'التواصل عبر واتساب',url:'https://wa.me/'+lead.phone.slice(1)}]);
  return {text,link_preview_options:{is_disabled:true},reply_markup:{inline_keyboard:keyboard}};
@@ -77,6 +77,7 @@ export function createTelegramOrders(pool,{secret,fetchImpl=fetch,intervalMs=100
     await client.query('BEGIN');await client.query('SELECT pg_advisory_xact_lock($1,$2)',[76321,ownerId]);
     const latest=await client.query('SELECT COALESCE(MAX(id),0) AS id FROM leads WHERE owner_id=$1',[ownerId]);
     const previous=(await client.query('SELECT * FROM store_telegram_settings WHERE owner_id=$1',[ownerId])).rows[0];
+    if(input.initialOnly&&previous){await client.query('COMMIT');return {status:200,body:await read(ownerId)};}
     let sameConnection=false;
     if(previous?.chat_id===chatId){try{sameConnection=openToken(previous.token_encrypted,secret,ownerId).split(':')[0]===token.split(':')[0];}catch{/* A changed encryption key requires a fresh connection. */}}
     const connectionId=sameConnection?previous.connection_id:randomUUID();
@@ -137,8 +138,31 @@ export function createTelegramOrders(pool,{secret,fetchImpl=fetch,intervalMs=100
    }catch{await client.query('ROLLBACK').catch(()=>{});logger.warn('Telegram notification worker will retry');}finally{client.release();}
   }
  }
+ async function backfill(ownerId,botToken,chatId,batchId){
+  if(!/^[A-Za-z0-9_-]{1,80}$/.test(batchId))return 0;
+  const client=await pool.connect();
+  try{
+   await client.query('BEGIN');await client.query('SELECT pg_advisory_xact_lock($1,$2)',[76321,ownerId]);
+   const settings=(await client.query('SELECT * FROM store_telegram_settings WHERE owner_id=$1',[ownerId])).rows[0];
+   if(!settings||settings.chat_id!==chatId||openToken(settings.token_encrypted,secret,ownerId).split(':')[0]!==botToken.split(':')[0]){await client.query('COMMIT');return 0;}
+   const marker='telegram-backfill:'+ownerId+':'+batchId;
+   if((await client.query('SELECT id FROM form_settings WHERE id=$1',[marker])).rows[0]){await client.query('COMMIT');return 0;}
+   const result=await client.query('INSERT INTO telegram_order_deliveries(connection_id,lead_id,owner_id) SELECT $1,id,owner_id FROM leads WHERE owner_id=$2 ORDER BY id ON CONFLICT DO NOTHING',[settings.connection_id,ownerId]);
+   await client.query('INSERT INTO form_settings(id,value) VALUES($1,$2)',[marker,JSON.stringify({connectionId:settings.connection_id,queued:result.rowCount,at:new Date().toISOString()})]);
+   await client.query('COMMIT');return result.rowCount;
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ async function bootstrap(botToken,chatId,backfillId){
+  if(!botToken||!chatId)return null;
+  const store=(await pool.query("SELECT id FROM members WHERE store_slug='toyota-parts' AND platform_suspended=0")).rows[0];
+  if(!store)return {status:404,body:{error:'STORE_UNAVAILABLE'}};
+  const existing=await read(store.id);
+  const result=existing.configured?{status:200,body:existing}:await handle({ownerId:store.id,action:'connect',botToken,chatId,initialOnly:true});
+  if(result.status===200&&backfillId)result.body.backfillQueued=await backfill(store.id,botToken,chatId,backfillId);
+  return result;
+ }
  function run(){if(running||stopped)return;running=tick().catch(()=>logger.warn('Telegram notification scan unavailable')).finally(()=>{running=null;});}
  function start(){timer=setInterval(run,intervalMs);timer.unref();run();}
  async function close(){stopped=true;clearInterval(timer);await running;}
- return {handle,start,close,tick};
+ return {handle,start,close,tick,bootstrap};
 }

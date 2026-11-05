@@ -46,6 +46,9 @@ export async function startStorage(connectionString, token, port = 8788) {
   console.log('PostgreSQL ready: products, leads, product_images, request_images.');
   const telegram = createTelegramOrders(pool,{secret:process.env.ADMIN_AUTH_SECRET});
   telegram.start();
+  void telegram.bootstrap(process.env.TOYOTA_TELEGRAM_BOT_TOKEN,process.env.TOYOTA_TELEGRAM_CHAT_ID,process.env.TOYOTA_TELEGRAM_BACKFILL_ID).then(result=>{
+    if(result){console.log(result.status===200?'Telegram order notifications configured.':'Telegram setup pending: '+result.body.error);if(result.body.backfillQueued!==undefined)console.log('Telegram existing orders queued: '+result.body.backfillQueued);}
+  }).catch(()=>console.warn('Telegram setup temporarily unavailable; orders remain saved.'));
   const expected = Buffer.from(`Bearer ${token}`);
   const server = http.createServer(async (request, response) => {
     const given = Buffer.from(request.headers.authorization || '');
