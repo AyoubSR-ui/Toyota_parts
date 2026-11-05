@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { createTelegramOrders,sealToken,openToken,orderMessage,telegramCall,TelegramError,safeTelegramError } from './telegram-orders.mjs';
+import { createTelegramOrders,orderDateTime,sealToken,openToken,orderMessage,telegramCall,TelegramError,safeTelegramError } from './telegram-orders.mjs';
 const db=await PGlite.create();
 await db.exec(readFileSync(new URL('./postgres-schema.sql',import.meta.url),'utf8'));
 // Reapplying the production schema must be safe.
@@ -45,10 +45,16 @@ const bootstrapCalls=calls.length;await service.bootstrap(token,'-1009999999999'
 assert(!JSON.stringify(connected.body).includes(token));assert(!('token_encrypted' in connected.body));
 const config=(await query('SELECT * FROM store_telegram_settings')).rows[0];
 assert.equal(config.start_after_id,history.id);assert.notEqual(config.token_encrypted,token);
+assert.deepEqual(orderDateTime('2026-11-03T14:41:31.817Z'),{date:'03/11/2026',time:'15:41'});
+assert.deepEqual(orderDateTime('2026-11-04T23:30:00Z'),{date:'05/11/2026',time:'00:30'});
+assert.deepEqual(orderDateTime('2026-11-03 14:41:31'),{date:'03/11/2026',time:'15:41'});
+assert.deepEqual(orderDateTime(''),{date:'—',time:'—'});
+assert.deepEqual(orderDateTime('not-a-date'),{date:'—',time:'—'});
 const message=orderMessage(history);
 assert(message.text.includes('REF-123')&&message.text.includes('Corolla')&&message.text.includes('2014')&&message.text.includes('FRAME-123'));
 assert(message.text.includes('+213555123456')&&message.text.includes('الكمية المطلوبة: 10')&&message.text.includes('Original message <b>not markup</b>'));
 assert(message.text.includes('سعر الجملة: يُحدد خلال مكالمة التأكيد.'));
+assert(message.text.includes('\u206601/01/2026\u2069'));assert(message.text.includes('\u206613:00\u2069'));
 assert(!('parse_mode' in message));assert(message.text.length<4096);
 assert.equal(message.reply_markup.inline_keyboard[1][0].url,'https://wa.me/213555123456');
 const before=calls.length;await service.tick();assert.equal(calls.length,before); // No historical replay.
@@ -84,13 +90,22 @@ const fileCall=calls.at(-1);assert.equal(fileCall.method,'sendDocument');assert.
 assert.equal(Buffer.from(await fileCall.data.get('document').arrayBuffer()).toString(),imageBytes.toString());
 assert((await query('SELECT sent_at FROM telegram_order_deliveries WHERE lead_id=$1',[photo.id])).rows[0].sent_at);
 await query("UPDATE leads SET order_status='confirmed',admin_note='Private admin follow-up' WHERE id=$1",[a.id]);
-const beforeEdit=calls.length;await service.tick();assert.equal(calls.length,beforeEdit); // Editing isn't a new order.
+const beforeEdit=calls.length;await service.tick();assert.equal(calls.length,beforeEdit);
+await query('UPDATE telegram_order_deliveries SET format_version=0 WHERE lead_id=$1',[a.id]);
+const priorSent=calls.filter(call=>call.method==='sendMessage').length;await service.tick();
+assert.equal(calls.at(-1).method,'editMessageText');assert.equal(calls.at(-1).data.message_id,Number((await query('SELECT text_message_id FROM telegram_order_deliveries WHERE lead_id=$1',[a.id])).rows[0].text_message_id));
+assert(calls.at(-1).data.text.includes('توقيت الجزائر'));assert.equal(calls.filter(call=>call.method==='sendMessage').length,priorSent);
+assert.equal((await query('SELECT format_version FROM telegram_order_deliveries WHERE lead_id=$1',[a.id])).rows[0].format_version,1); // Editing isn't a new order.
 // Reconnecting the same bot/chat preserves and resumes existing pending deliveries.
 const reconnectRetry=await lead();failMessage=true;await service.tick();
 const oldConnection=(await query('SELECT connection_id FROM store_telegram_settings')).rows[0].connection_id;
 await service.handle({ownerId,action:'connect',botToken:token,chatId:'-1001234567890'});
 assert.equal((await query('SELECT connection_id FROM store_telegram_settings')).rows[0].connection_id,oldConnection);
 await service.tick();assert((await query('SELECT sent_at FROM telegram_order_deliveries WHERE lead_id=$1',[reconnectRetry.id])).rows[0].sent_at);
+// A missing historical image reports the limitation instead of retrying an absent object forever.
+const missingImage=await lead(ownerId,{image_key:'requests/missing-file.jpg'});await service.tick();
+assert(calls.at(-1).method==='sendMessage'&&calls.at(-1).data.text.includes('غير متاحة في التخزين'));
+assert((await query('SELECT sent_at FROM telegram_order_deliveries WHERE lead_id=$1',[missingImage.id])).rows[0].sent_at);
 // A different destination starts with future orders, never pending or past customers.
 await lead();
 await service.handle({ownerId,action:'connect',botToken:token,chatId:'-1009999999999'});

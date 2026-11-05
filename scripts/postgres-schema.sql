@@ -128,3 +128,4 @@ CREATE TABLE IF NOT EXISTS telegram_order_deliveries (
  sent_at TEXT, last_error TEXT, PRIMARY KEY(connection_id,lead_id)
 );
 CREATE INDEX IF NOT EXISTS telegram_pending_idx ON telegram_order_deliveries(owner_id,connection_id,next_attempt_at) WHERE sent_at IS NULL;
+ALTER TABLE telegram_order_deliveries ADD COLUMN IF NOT EXISTS format_version INTEGER NOT NULL DEFAULT 0;

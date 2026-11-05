@@ -15,23 +15,32 @@ export function openToken(value,secret,ownerId){
  decipher.setAAD(Buffer.from(String(ownerId)));decipher.setAuthTag(tag);
  return Buffer.concat([decipher.update(ciphertext),decipher.final()]).toString('utf8');
 }
+export function orderDateTime(value){
+ if(!value)return {date:'—',time:'—'};
+ const input=String(value),timestamp=/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(input)?input.replace(' ','T')+'Z':input;
+ const date=new Date(timestamp);if(!Number.isFinite(date.getTime()))return {date:'—',time:'—'};
+ const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Algiers',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date);
+ const part=type=>parts.find(value=>value.type===type).value;
+ return {date:part('day')+'/'+part('month')+'/'+part('year'),time:part('hour')+':'+part('minute')};
+}
 export function orderMessage(lead){
+ const dateTime=orderDateTime(lead.created_at);
  const value=(input)=>input===null||input===undefined||input===''?'—':String(input);
  const status={new:'جديد',confirmed:'مؤكد',preparing:'قيد التحضير',shipped:'تم الشحن',delivered:'تم التسليم',cancelled:'ملغى',returned:'مرتجع'}[lead.order_status]||'جديد';
  const type=lead.order_type==='wholesale'?'جملة':lead.order_type==='single'?'قطعة واحدة':'غير محدد';
- const text=[`طلب — Toyota Parts #${lead.id}`,'',`الاسم: ${value(lead.name)}`,`واتساب: ${value(lead.phone)}`,`القطعة: ${value(lead.part_name)}`,`المرجع: ${value(lead.reference)}`,`علامة السيارة: ${value(lead.brand)}`,`الموديل: ${value(lead.model)}`,`السنة: ${value(lead.year)}`,`VIN / رقم الهيكل: ${value(lead.vin_frame)}`,`نوع الطلب: ${type}`,`الكمية المطلوبة: ${value(lead.quantity)}`,lead.order_type==='wholesale'?'سعر الجملة: يُحدد خلال مكالمة التأكيد.':null,`الحالة: ${status}`,`الأرشيف: ${lead.archived_at?'مؤرشف':'طلب نشط'}`, `المصدر: ${lead.source==='chatbot'?'المساعد الآلي':'نموذج الطلب'}`,`التاريخ: ${value(lead.created_at)}`,'',`ملاحظة العميل:\n${value(lead.note)}`].filter(line=>line!==null).join('\n');
+ const text=[`طلب — Toyota Parts #${lead.id}`,'',`الاسم: ${value(lead.name)}`,`واتساب: ${value(lead.phone)}`,`القطعة: ${value(lead.part_name)}`,`المرجع: ${value(lead.reference)}`,`علامة السيارة: ${value(lead.brand)}`,`الموديل: ${value(lead.model)}`,`السنة: ${value(lead.year)}`,`VIN / رقم الهيكل: ${value(lead.vin_frame)}`,`نوع الطلب: ${type}`,`الكمية المطلوبة: ${value(lead.quantity)}`,lead.order_type==='wholesale'?'سعر الجملة: يُحدد خلال مكالمة التأكيد.':null,`الحالة: ${status}`,`الأرشيف: ${lead.archived_at?'مؤرشف':'طلب نشط'}`, `المصدر: ${lead.source==='chatbot'?'المساعد الآلي':'نموذج الطلب'}`,`التاريخ: \u2066${dateTime.date}\u2069`,`الوقت: \u2066${dateTime.time}\u2069 (توقيت الجزائر)`,'',`ملاحظة العميل:\n${value(lead.note)}`].filter(line=>line!==null).join('\n');
  const keyboard=[[{text:'فتح الطلبات',url:dashboard}]];
  if(/^\+213[567]\d{8}$/.test(lead.phone||''))keyboard.push([{text:'التواصل عبر واتساب',url:'https://wa.me/'+lead.phone.slice(1)}]);
  return {text,link_preview_options:{is_disabled:true},reply_markup:{inline_keyboard:keyboard}};
 }
 export class TelegramError extends Error{
- constructor(code,retryAfter=0){super('Telegram request failed');this.code=code;this.retryAfter=retryAfter;}
+ constructor(code,retryAfter=0,reason=''){super('Telegram request failed');this.code=code;this.retryAfter=retryAfter;this.reason=reason;}
 }
 export async function telegramCall(token,method,data,fetchImpl=fetch){
  // Never log this URL: it contains the credential. The host/method are fixed by application code.
  let response;try{response=await fetchImpl(`https://api.telegram.org/bot${token}/${method}`,data instanceof FormData?{method:'POST',body:data,signal:AbortSignal.timeout(12000)}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(12000)});}catch{throw new TelegramError('NETWORK');}
  let body;try{body=await response.json();}catch{throw new TelegramError('RESPONSE');}
- if(!response.ok||body.ok!==true)throw new TelegramError(Number(body.error_code)||response.status,Number(body.parameters?.retry_after)||0);
+ if(!response.ok||body.ok!==true)throw new TelegramError(Number(body.error_code)||response.status,Number(body.parameters?.retry_after)||0,String(body.description||'').includes('message is not modified')?'MESSAGE_NOT_MODIFIED':'');
  return body.result;
 }
 export function safeTelegramError(error){
@@ -96,16 +105,21 @@ export function createTelegramOrders(pool,{secret,fetchImpl=fetch,intervalMs=100
   const args=[settings.connection_id,lead.id];
   if(!job.text_message_id){
    const message=await api(token,'sendMessage',{chat_id:settings.chat_id,...orderMessage(lead)});
-   await client.query('UPDATE telegram_order_deliveries SET text_message_id=$3 WHERE connection_id=$1 AND lead_id=$2',[...args,String(message.message_id)]);
+   await client.query('UPDATE telegram_order_deliveries SET text_message_id=$3,format_version=1 WHERE connection_id=$1 AND lead_id=$2',[...args,String(message.message_id)]);
   }
   if(lead.image_key&&!job.attachment_message_id){
    const image=(await client.query('SELECT data,content_type FROM request_images WHERE key=$1',[lead.image_key])).rows[0];
-   if(!image)throw Error('Order attachment missing');
-   const form=new FormData();form.set('chat_id',settings.chat_id);form.set('caption',`صورة العميل — Toyota Parts #${lead.id}`);
-   const extension=image.content_type==='image/png'?'png':image.content_type==='image/webp'?'webp':'jpg';
-   form.set('document',new Blob([image.data],{type:image.content_type}),`order-${lead.id}.${extension}`);
-   const attachment=await api(token,'sendDocument',form);
-   await client.query('UPDATE telegram_order_deliveries SET attachment_message_id=$3 WHERE connection_id=$1 AND lead_id=$2',[...args,String(attachment.message_id)]);
+   if(!image){
+    const warning=await api(token,'sendMessage',{chat_id:settings.chat_id,text:`طلب #${lead.id}: صورة العميل غير متاحة في التخزين. يُرجى مراجعة الطلب أو طلب الصورة مجدداً من العميل.`,link_preview_options:{is_disabled:true}});
+    await client.query('UPDATE telegram_order_deliveries SET attachment_message_id=$3 WHERE connection_id=$1 AND lead_id=$2',[...args,String(warning.message_id)]);
+    logger.warn('Telegram source attachment unavailable #'+lead.id);
+   }else{
+    const form=new FormData();form.set('chat_id',settings.chat_id);form.set('caption',`صورة العميل — Toyota Parts #${lead.id}`);
+    const extension=image.content_type==='image/png'?'png':image.content_type==='image/webp'?'webp':'jpg';
+    form.set('document',new Blob([image.data],{type:image.content_type}),`order-${lead.id}.${extension}`);
+    const attachment=await api(token,'sendDocument',form);
+    await client.query('UPDATE telegram_order_deliveries SET attachment_message_id=$3 WHERE connection_id=$1 AND lead_id=$2',[...args,String(attachment.message_id)]);
+   }
   }
   const sentAt=new Date().toISOString();
   await client.query('UPDATE telegram_order_deliveries SET sent_at=$3,last_error=NULL WHERE connection_id=$1 AND lead_id=$2',[...args,sentAt]);
@@ -131,10 +145,24 @@ export function createTelegramOrders(pool,{secret,fetchImpl=fetch,intervalMs=100
       const safe=safeTelegramError(error),delay=Math.max(Math.min(3600,30*2**Math.min(job.attempts,7)),Math.min(86400,Number(error.retryAfter)||0));
       await client.query("UPDATE telegram_order_deliveries SET attempts=attempts+1,last_error=$3,next_attempt_at=NOW()+($4 * INTERVAL '1 second') WHERE connection_id=$1 AND lead_id=$2",[settings.connection_id,job.lead_id,safe,delay]);
       await client.query('UPDATE store_telegram_settings SET last_error=$2 WHERE owner_id=$1',[ownerId,safe]);
-      logger.warn('Telegram order notification pending retry');
+      logger.warn('Telegram order notification pending retry #'+job.lead_id+': '+safe);
      }
     }
+    // Refresh timestamps in existing messages in place; never repost customer orders.
+    const outdatedRows=(await client.query('SELECT d.lead_id,d.text_message_id,l.* FROM telegram_order_deliveries d JOIN leads l ON l.id=d.lead_id AND l.owner_id=d.owner_id WHERE d.owner_id=$1 AND d.connection_id=$2 AND d.text_message_id IS NOT NULL AND d.format_version<1 ORDER BY d.lead_id LIMIT $3',[ownerId,settings.connection_id,settings.chat_id.startsWith('-')?1:5])).rows;
+    const formattedIds=[];
+    for(const outdated of outdatedRows){
+     // Keep in-place edits below Telegram's per-chat send pace.
+     if(fetchImpl===fetch)await new Promise(resolve=>setTimeout(resolve,1200));
+     try{
+      const token=openToken(settings.token_encrypted,secret,ownerId);
+      try{await api(token,'editMessageText',{chat_id:settings.chat_id,message_id:Number(outdated.text_message_id),...orderMessage(outdated)});}catch(error){if(error.reason!=='MESSAGE_NOT_MODIFIED')throw error;}
+      await client.query('UPDATE telegram_order_deliveries SET format_version=1 WHERE connection_id=$1 AND lead_id=$2',[settings.connection_id,outdated.lead_id]);
+      formattedIds.push(outdated.lead_id);
+     }catch(error){logger.warn('Telegram date update pending #'+outdated.lead_id+': '+safeTelegramError(error));break;}
+    }
     await client.query('COMMIT');
+    for(const formattedId of formattedIds)logger.info?.('Telegram order date updated #'+formattedId);
     if(deliveredId!==null)logger.info?.('Telegram order notification delivered #'+deliveredId);
    }catch{await client.query('ROLLBACK').catch(()=>{});logger.warn('Telegram notification worker will retry');}finally{client.release();}
   }
